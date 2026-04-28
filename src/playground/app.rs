@@ -19,6 +19,43 @@ use par_core::source::FileName;
 use par_runtime::spawn::TokioSpawn;
 use tokio_util::sync::CancellationToken;
 
+const DEFAULT_CODE: &str = r#"module Playground
+
+import {
+  @core/Int
+  @core/Nat
+}
+
+def Describe = [number: Int] if {
+  number < 0       => "Negative",
+  number == 0      => "Zero",
+  0 < number < 100 => "Small",
+  else             => "Incomprehensible",
+}
+
+dec Factorial : [Nat] Nat
+def Factorial = [n]
+  Nat.Range(1, n).begin.case {
+    .end!       => 1,
+    .item(x) xs => x * xs.loop,
+  }
+
+dec Fibonacci : iterative choice {
+  .next  => (Nat) self,
+  .close => !,
+}
+
+def Fibonacci = do {
+  let a = 0
+  let b = 1
+} in begin case {
+  .next => do {
+    let (a, b)! = (b, a + b)!
+  } in (a) loop,
+  
+  .close => !,
+}"#;
+
 pub struct Playground {
     file_path: Option<PathBuf>,
     code: String,
@@ -115,7 +152,7 @@ impl Playground {
 
         let mut playground = Box::new(Self {
             file_path: file_path.clone(),
-            code: "".to_owned(),
+            code: DEFAULT_CODE.to_owned(),
             build: BuildResult::None,
             built_code: Arc::from(""),
             editor_font_size: 16.0,
