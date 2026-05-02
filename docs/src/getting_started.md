@@ -46,7 +46,15 @@ This may take a while as Rust downloads and builds all the dependencies.
 
 This installs the `par` command.
 
-### 4. Create a package
+### 4. Install the Visual Studio Code extension
+
+If you use Visual Studio Code, install the
+[Par extension](https://marketplace.visualstudio.com/items?itemName=par-lang.par-vscode).
+It gives you syntax highlighting and editor support while you follow along.
+
+This step is optional; the command-line tools work without it.
+
+### 5. Create a package
 
 A new `par` command should now be available in your terminal. It may be necessary
 to restart the terminal for it to appear.
@@ -79,7 +87,7 @@ And you can type-check the package without running it:
 $ par check
 ```
 
-### 5. Browse the docs
+### 6. Browse the docs
 
 Par comes with a built-in docs browser:
 
@@ -94,7 +102,7 @@ This command is useful in three different situations:
 - **For a remote package,** `par doc --remote github.com/faiface/par-cancellable` lets you inspect
   a package without manually adding it as a dependency.
 
-### 6. Open the playground
+### 7. Open the playground
 
 The playground is a great way to experiment with code and interact with values through the
 playground's automatic UI:
