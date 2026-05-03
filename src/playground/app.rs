@@ -90,11 +90,13 @@ impl Playground {
             .unwrap_or(false);
         let initial_is_dark = ThemeMode::default().is_dark(system_dark);
 
-        cc.egui_ctx.set_visuals(if initial_is_dark {
+        let mut visuals = if initial_is_dark {
             egui::Visuals::dark()
         } else {
             egui::Visuals::light()
-        });
+        };
+        apply_playground_visuals(&mut visuals);
+        cc.egui_ctx.set_visuals(visuals);
 
         cc.egui_ctx.all_styles_mut(|style| {
             style.text_styles.extend([
@@ -102,6 +104,7 @@ impl Playground {
                 (egui::TextStyle::Button, egui::FontId::proportional(18.0)),
                 (egui::TextStyle::Body, egui::FontId::proportional(16.0)),
             ]);
+            style.spacing.button_padding = egui::vec2(6.0, 3.0);
             style.visuals.code_bg_color = egui::Color32::TRANSPARENT;
             style.wrap_mode = Some(egui::TextWrapMode::Extend);
         });
@@ -169,7 +172,7 @@ impl eframe::App for Playground {
         } else {
             egui::Visuals::light()
         };
-        visuals.code_bg_color = egui::Color32::TRANSPARENT;
+        apply_playground_visuals(&mut visuals);
         ui.set_visuals(visuals);
 
         #[cfg(target_family = "wasm")]
@@ -179,94 +182,114 @@ impl eframe::App for Playground {
 
         self.sources.reload_active_if_changed();
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            let initial_editor_width = ui.available_width() / 2.0;
-            egui::Panel::left("interaction")
-                .resizable(true)
-                .show_separator_line(true)
-                .default_size(initial_editor_width)
-                .show_inside(ui, |ui| {
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            if ui.button(egui::RichText::new("-").monospace()).clicked() {
-                                self.editor_font_size = (self.editor_font_size - 1.0).max(8.0);
-                            }
-                            ui.label(
-                                egui::RichText::new(self.editor_font_size.to_string()).strong(),
-                            );
-                            if ui.button(egui::RichText::new("+").monospace()).clicked() {
-                                self.editor_font_size = (self.editor_font_size + 1.0).min(320.0);
-                            }
-
-                            ui.add_space(5.0);
-
-                            #[cfg(not(target_family = "wasm"))]
-                            self.show_file_menu(ui);
-
-                            ui.add_space(5.0);
-
-                            egui::containers::menu::MenuButton::from_button(egui::Button::new(
-                                egui::RichText::new("Theme").strong(),
-                            ))
-                            .ui(ui, |ui| {
-                                for &mode in ThemeMode::all() {
-                                    if ui
-                                        .radio(self.theme_mode == mode, mode.display_name())
-                                        .clicked()
-                                    {
-                                        self.theme_mode = mode;
-                                        ui.close();
-                                    }
+        egui::CentralPanel::default()
+            .frame(egui::Frame::new().fill(ui.visuals().panel_fill))
+            .show_inside(ui, |ui| {
+                let initial_editor_width = ui.available_width() / 2.0;
+                egui::Panel::left("interaction")
+                    .resizable(true)
+                    .show_separator_line(true)
+                    .default_size(initial_editor_width)
+                    .frame(egui::Frame::NONE)
+                    .show_inside(ui, |ui| {
+                        show_toolbar(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                if ui.button(egui::RichText::new("-").monospace()).clicked() {
+                                    self.editor_font_size = (self.editor_font_size - 1.0).max(8.0);
                                 }
-                            });
+                                ui.label(
+                                    egui::RichText::new(self.editor_font_size.to_string()).strong(),
+                                );
+                                if ui.button(egui::RichText::new("+").monospace()).clicked() {
+                                    self.editor_font_size =
+                                        (self.editor_font_size + 1.0).min(320.0);
+                                }
 
-                            ui.add_space(5.0);
+                                ui.add_space(5.0);
 
-                            self.show_source_menu(ui);
-                        });
+                                #[cfg(not(target_family = "wasm"))]
+                                self.show_file_menu(ui);
 
-                        ui.separator();
-                        let editor = CodeEditor::default()
-                            .id_source("code")
-                            .with_syntax(par_syntax())
-                            .with_rows(32)
-                            .with_fontsize(self.editor_font_size)
-                            .with_theme(self.get_theme(ui))
-                            .with_numlines(true)
-                            .show_with_completer(
-                                ui,
-                                self.sources.active_source_mut(),
-                                &mut self.completer,
-                            );
+                                ui.add_space(5.0);
 
-                        if let Some(cursor) = editor.cursor_range {
-                            self.cursor_pos =
-                                row_and_column(self.sources.active_source(), cursor.primary.index);
-                        }
-
-                        if let (Some(checked), Some(hover_pos)) =
-                            (self.build.checked(), editor_hover_pos(&editor))
-                        {
-                            let hover_file_name = self.active_file_name();
-                            if let Some(name_info) =
-                                checked.hover_at(&hover_file_name, hover_pos.0, hover_pos.1)
-                            {
-                                let signature = checked
-                                    .render_hover_signature_in_file(&hover_file_name, &name_info);
-                                editor.response.response.on_hover_ui_at_pointer(|ui| {
-                                    ui.label(RichText::new(signature).code());
-                                    if let Some(doc) = name_info.doc() {
-                                        ui.separator();
-                                        ui.label(doc.markdown.as_str());
+                                egui::containers::menu::MenuButton::from_button(egui::Button::new(
+                                    egui::RichText::new("Theme").strong(),
+                                ))
+                                .ui(ui, |ui| {
+                                    for &mode in ThemeMode::all() {
+                                        if ui
+                                            .radio(self.theme_mode == mode, mode.display_name())
+                                            .clicked()
+                                        {
+                                            self.theme_mode = mode;
+                                            ui.close();
+                                        }
                                     }
                                 });
-                            }
-                        }
-                    });
-                });
 
-            self.show_interaction(ui);
-        });
+                                ui.add_space(5.0);
+
+                                self.show_source_menu(ui);
+                            });
+                        });
+
+                        egui::Frame::new()
+                            .inner_margin(egui::Margin {
+                                left: 8,
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                            })
+                            .show(ui, |ui| {
+                                egui::ScrollArea::vertical().show(ui, |ui| {
+                                    let editor = CodeEditor::default()
+                                        .id_source("code")
+                                        .with_syntax(par_syntax())
+                                        .with_rows(32)
+                                        .with_fontsize(self.editor_font_size)
+                                        .with_theme(self.get_theme(ui))
+                                        .with_numlines(true)
+                                        .show_with_completer(
+                                            ui,
+                                            self.sources.active_source_mut(),
+                                            &mut self.completer,
+                                        );
+
+                                    if let Some(cursor) = editor.cursor_range {
+                                        self.cursor_pos = row_and_column(
+                                            self.sources.active_source(),
+                                            cursor.primary.index,
+                                        );
+                                    }
+
+                                    if let (Some(checked), Some(hover_pos)) =
+                                        (self.build.checked(), editor_hover_pos(&editor))
+                                    {
+                                        let hover_file_name = self.active_file_name();
+                                        if let Some(name_info) = checked.hover_at(
+                                            &hover_file_name,
+                                            hover_pos.0,
+                                            hover_pos.1,
+                                        ) {
+                                            let signature = checked.render_hover_signature_in_file(
+                                                &hover_file_name,
+                                                &name_info,
+                                            );
+                                            editor.response.response.on_hover_ui_at_pointer(|ui| {
+                                                ui.label(RichText::new(signature).code());
+                                                if let Some(doc) = name_info.doc() {
+                                                    ui.separator();
+                                                    ui.label(doc.markdown.as_str());
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            });
+                    });
+
+                self.show_interaction(ui);
+            });
 
         #[cfg(not(target_family = "wasm"))]
         self.show_open_error_dialog(ui.ctx());
@@ -296,6 +319,77 @@ fn editor_hover_pos(output: &egui::text_edit::TextEditOutput) -> Option<(u32, u3
 
     let hover_cursor = output.galley.cursor_from_pos(hover_pos - output.galley_pos);
     Some(row_and_column(&output.galley.job.text, hover_cursor.index))
+}
+
+fn show_toolbar(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
+    let previous_item_spacing = ui.spacing().item_spacing;
+    ui.spacing_mut().item_spacing.y = 0.0;
+
+    egui::Frame::new()
+        .inner_margin(egui::Margin::same(8))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            add_contents(ui);
+        });
+
+    ui.spacing_mut().item_spacing = previous_item_spacing;
+}
+
+fn apply_playground_visuals(visuals: &mut egui::Visuals) {
+    visuals.code_bg_color = egui::Color32::TRANSPARENT;
+
+    let button_stroke_color = if visuals.dark_mode {
+        egui::Color32::from_gray(82)
+    } else {
+        egui::Color32::from_gray(194)
+    };
+    let button_stroke = egui::Stroke::new(1.0, button_stroke_color);
+    let button_radius = egui::CornerRadius::same(3);
+
+    for widget in [
+        &mut visuals.widgets.inactive,
+        &mut visuals.widgets.hovered,
+        &mut visuals.widgets.active,
+        &mut visuals.widgets.open,
+    ] {
+        widget.bg_stroke = button_stroke;
+        widget.corner_radius = button_radius;
+    }
+}
+
+fn tint_button_visuals(visuals: &mut egui::Visuals, fill: egui::Color32) {
+    let inactive = visuals.widgets.inactive.weak_bg_fill;
+    let hovered = visuals.widgets.hovered.weak_bg_fill;
+    let active = visuals.widgets.active.weak_bg_fill;
+    let open = visuals.widgets.open.weak_bg_fill;
+
+    visuals.widgets.inactive.weak_bg_fill = fill;
+    visuals.widgets.hovered.weak_bg_fill = shifted_tint(fill, inactive, hovered);
+    visuals.widgets.active.weak_bg_fill = shifted_tint(fill, inactive, active);
+    visuals.widgets.open.weak_bg_fill = shifted_tint(fill, inactive, open);
+}
+
+fn shifted_tint(
+    fill: egui::Color32,
+    inactive: egui::Color32,
+    target: egui::Color32,
+) -> egui::Color32 {
+    let delta = luminance(target) - luminance(inactive);
+    if delta.abs() < 0.01 {
+        return fill;
+    }
+
+    let amount = (delta.abs() * 1.5).clamp(0.08, 0.22);
+    if delta.is_sign_positive() {
+        fill.lerp_to_gamma(egui::Color32::WHITE, amount)
+    } else {
+        fill.lerp_to_gamma(egui::Color32::BLACK, amount)
+    }
+}
+
+fn luminance(color: egui::Color32) -> f32 {
+    let [r, g, b, _] = color.to_array();
+    (0.2126 * r as f32 + 0.7152 * g as f32 + 0.0722 * b as f32) / 255.0
 }
 
 impl Playground {
@@ -424,27 +518,36 @@ impl Playground {
     }
 
     fn show_source_menu(&mut self, ui: &mut egui::Ui) {
-        let (response, _) = egui::containers::menu::MenuButton::from_button(
-            egui::Button::new(
-                RichText::new(self.sources.active_label())
-                    .strong()
-                    .color(egui::Color32::BLACK),
-            )
-            .right_text(RichText::new("v").color(egui::Color32::TRANSPARENT))
-            .fill(blue().lerp_to_gamma(egui::Color32::WHITE, 0.55)),
-        )
-        .ui(ui, |ui| {
-            for index in 0..self.sources.buffer_count() {
-                let label = self.sources.buffer_label(index);
-                if ui
-                    .selectable_label(self.sources.is_active(index), label)
-                    .clicked()
-                {
-                    self.switch_to_source(index);
-                    ui.close();
-                }
-            }
-        });
+        let response = ui
+            .scope(|ui| {
+                tint_button_visuals(
+                    ui.visuals_mut(),
+                    blue().lerp_to_gamma(egui::Color32::WHITE, 0.55),
+                );
+                let (response, _) = egui::containers::menu::MenuButton::from_button(
+                    egui::Button::new(
+                        RichText::new(self.sources.active_label())
+                            .strong()
+                            .color(egui::Color32::BLACK),
+                    )
+                    .right_text(RichText::new("v").color(egui::Color32::TRANSPARENT)),
+                )
+                .ui(ui, |ui| {
+                    for index in 0..self.sources.buffer_count() {
+                        let label = self.sources.buffer_label(index);
+                        if ui
+                            .selectable_label(self.sources.is_active(index), label)
+                            .clicked()
+                        {
+                            self.switch_to_source(index);
+                            ui.close();
+                        }
+                    }
+                });
+                response
+            })
+            .inner;
+
         paint_dropdown_arrow(ui, response.rect, egui::Color32::BLACK);
     }
 
@@ -551,52 +654,55 @@ impl Playground {
 
     fn show_interaction(&mut self, ui: &mut egui::Ui) {
         ui.vertical(|ui| {
-            ui.horizontal_top(|ui| {
-                ui.add_space(5.0);
-
-                if ui.button(egui::RichText::new("Compile").strong()).clicked() {
-                    self.recompile();
-                }
-
-                if self.build.pretty().is_some() {
-                    if let (Some(checked), Some(rt_compiled)) =
-                        (self.build.checked(), self.build.rt_compiled())
-                    {
-                        let active_file = self.active_file_name();
-                        let spawner = self.spawner.clone();
-                        let cancel_token = &mut self.cancel_token;
-                        let element = &mut self.element;
-                        let name_to_ty = &rt_compiled.name_to_ty;
-                        egui::containers::menu::MenuButton::from_button(
-                            egui::Button::new(
-                                egui::RichText::new("Run")
-                                    .strong()
-                                    .color(egui::Color32::BLACK),
-                            )
-                            .fill(green().lerp_to_gamma(egui::Color32::WHITE, 0.3)),
-                        )
-                        .ui(ui, |ui| {
-                            egui::ScrollArea::vertical().show(ui, |ui| {
-                                run_menu::show_run_menu(
-                                    spawner.clone(),
-                                    cancel_token,
-                                    element,
-                                    ui,
-                                    &active_file,
-                                    checked.clone(),
-                                    rt_compiled,
-                                    name_to_ty,
-                                );
-                            })
-                        });
+            show_toolbar(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button(egui::RichText::new("Compile").strong()).clicked() {
+                        self.recompile();
                     }
 
-                    ui.checkbox(
-                        &mut self.show_compiled,
-                        egui::RichText::new("Show compiled"),
-                    );
-                    ui.checkbox(&mut self.show_ic, egui::RichText::new("Show IC"));
-                }
+                    if self.build.pretty().is_some() {
+                        if let (Some(checked), Some(rt_compiled)) =
+                            (self.build.checked(), self.build.rt_compiled())
+                        {
+                            let active_file = self.active_file_name();
+                            let spawner = self.spawner.clone();
+                            let cancel_token = &mut self.cancel_token;
+                            let element = &mut self.element;
+                            let name_to_ty = &rt_compiled.name_to_ty;
+                            ui.scope(|ui| {
+                                tint_button_visuals(
+                                    ui.visuals_mut(),
+                                    green().lerp_to_gamma(egui::Color32::WHITE, 0.3),
+                                );
+                                egui::containers::menu::MenuButton::from_button(egui::Button::new(
+                                    egui::RichText::new("Run")
+                                        .strong()
+                                        .color(egui::Color32::BLACK),
+                                ))
+                                .ui(ui, |ui| {
+                                    egui::ScrollArea::vertical().show(ui, |ui| {
+                                        run_menu::show_run_menu(
+                                            spawner.clone(),
+                                            cancel_token,
+                                            element,
+                                            ui,
+                                            &active_file,
+                                            checked.clone(),
+                                            rt_compiled,
+                                            name_to_ty,
+                                        );
+                                    })
+                                });
+                            });
+                        }
+
+                        ui.checkbox(
+                            &mut self.show_compiled,
+                            egui::RichText::new("Show compiled"),
+                        );
+                        ui.checkbox(&mut self.show_ic, egui::RichText::new("Show IC"));
+                    }
+                });
             });
 
             egui::CentralPanel::default().show_inside(ui, |ui| {
