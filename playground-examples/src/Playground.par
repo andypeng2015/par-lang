@@ -1,20 +1,25 @@
-module Starter
+module Playground
+
+// Click `Compile`, then select any of the definitions below in
+// the `Run` menu.
+//
+// See what happens ;)
 
 import {
   @core/Int
   @core/Nat
 }
 
-def Describe = [number: Int] if {
-  number < 0       => "Negative",
-  number == 0      => "Zero",
-  0 < number < 100 => "Small",
-  else             => "Incomprehensible",
+def Describe = [n: Int] if {
+  n < 0       => "Negative",
+  n == 0      => "Zero",
+  0 < n < 100 => "Small",
+  else        => "Incomprehensible",
 }
 
 dec Factorial : [Nat] Nat
 def Factorial = [n]
-  Nat.Range(1, n).begin.case {
+  Nat.Range(1, n + 1).begin.case {
     .end!       => 1,
     .item(x) xs => x * xs.loop,
   }

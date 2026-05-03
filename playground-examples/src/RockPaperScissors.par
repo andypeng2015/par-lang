@@ -1,5 +1,8 @@
 module RockPaperScissors
 
+// Try running `StartGame` to start an interactive 2-player simulation
+// of rock-paper-scissors. Find out what happens when you draw too much.
+
 import {
   @core/Nat
 }

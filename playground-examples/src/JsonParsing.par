@@ -1,0 +1,44 @@
+module JsonParsing
+
+// Try running `ParsedActions` to see how the JSON-encoded
+// actions from `SomeValidAndInvalidActions` end up decoded
+// using `ActionFormat`.
+
+import {
+  @core/Float
+  @core/Json
+  @core/List
+  @core/Option
+  @core/Result
+  @core/String
+}
+
+type Action = either {
+  .increment Float,
+  .reset!,
+  .shout String,
+}
+
+def ActionFormat = Json.Tagged(type Action, "action", *(
+  (.string "increment", Json.Field("delta", Json.Number))
+    box [num] .increment num,
+  (.string "reset", Json.Empty)
+    box [!] .reset!,
+  (.string "shout", Json.Field("message", Json.String))
+    box [msg] .shout msg,
+))
+
+def SomeValidAndInvalidActions : List<String> = *(
+  `{"action": "increment", "delta": 10}`,
+  `{"action": "reset"}`,
+  `{"action": "shout", "message": "Par is awesome!"}`,
+  `{"action": "decrement", "delta": 10}`,
+)
+
+def ParsedActions : List<Option<Action>> =
+  SomeValidAndInvalidActions
+    ->List.Map(type Result<Json.Error, Json>, box Json.Decode)
+    ->List.Map(type Option<Action>, box [result] {
+      catch _ => .err! in
+        result.try->{ActionFormat.parse}
+    })

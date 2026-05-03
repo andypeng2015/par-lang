@@ -1,5 +1,8 @@
 module PlaygroundChat
 
+// Try running `ServeChat` in the Playground, see start the interactive chat
+// server, connect users, and exchange messages. All in the UI of the Playground.
+
 import {
   @core/List
   @core/Map

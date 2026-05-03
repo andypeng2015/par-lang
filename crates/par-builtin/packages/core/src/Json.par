@@ -96,6 +96,9 @@ export {
   // Parses a JSON object with the given object format.
   dec Object : <a>[ObjectFormat<a>] Format<a>
 
+  // Parses an empty object. Ignores any fields, does not fail if fields are present.
+  dec Empty : ObjectFormat<!>
+
   // Parses a required object field with the given format.
   //
   // For example, `Json.Field("name", Json.String)` accepts an object whose
@@ -249,6 +252,10 @@ def Object = <a>[format] box case {
     .object o => format.parseObject(o),
     else _ => .err!,
   }
+}
+
+def Empty = box case {
+  .parseObject(_) => .ok!,
 }
 
 def Field = [key] <a>[format] box case {

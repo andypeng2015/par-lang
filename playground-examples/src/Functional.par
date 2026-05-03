@@ -1,0 +1,32 @@
+module Functional
+
+// Functions in Par are written as `[argument] result`.
+// Both the types, and the expressions.
+// Try running any of the definitions below in the
+// Playground, to see the results.
+
+import {
+  @core/Bytes
+  @core/Int
+  @core/List
+  @core/Nat
+  @core/String
+}
+
+dec SortByLength : [List<String>] List<String>
+def SortByLength = [strings] strings->List.SortBy(type Nat, box Bytes.Length)
+
+def Sorted = SortByLength(*("learning", "Par", "is", "fun"))
+
+dec SquareNumbers : List<Int>
+def SquareNumbers =
+  Int.Range(1, 10)
+    ->List.Map(type Int, box [a] a * a)
+
+dec MultiplicationTable : List<String>
+def MultiplicationTable =
+  Int.Range(1, 10)->List.FlatMap(type String, box [a] {
+    Int.Range(1, 10)->List.Map(type String, box [b] {
+      `#{a} x #{b} = #{a * b}`
+    })
+  })

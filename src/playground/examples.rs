@@ -5,8 +5,8 @@ pub(super) struct PlaygroundExample {
 
 pub(super) const PLAYGROUND_EXAMPLES: &[PlaygroundExample] = &[
     PlaygroundExample {
-        relative_path_from_src: "Starter.par",
-        source: include_str!("../../playground-examples/src/Starter.par"),
+        relative_path_from_src: "Playground.par",
+        source: include_str!("../../playground-examples/src/Playground.par"),
     },
     PlaygroundExample {
         relative_path_from_src: "PlaygroundChat.par",
@@ -15,5 +15,13 @@ pub(super) const PLAYGROUND_EXAMPLES: &[PlaygroundExample] = &[
     PlaygroundExample {
         relative_path_from_src: "RockPaperScissors.par",
         source: include_str!("../../playground-examples/src/RockPaperScissors.par"),
+    },
+    PlaygroundExample {
+        relative_path_from_src: "Functional.par",
+        source: include_str!("../../playground-examples/src/Functional.par"),
+    },
+    PlaygroundExample {
+        relative_path_from_src: "JsonParsing.par",
+        source: include_str!("../../playground-examples/src/JsonParsing.par"),
     },
 ];
