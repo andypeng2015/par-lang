@@ -1,15 +1,15 @@
 use std::fmt::Write;
 #[cfg(not(target_family = "wasm"))]
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::package_utils::SourceLookup;
+#[cfg(not(target_family = "wasm"))]
+use crate::workspace_support::checked_workspace_from_path;
 use crate::workspace_support::{
     CheckedWorkspaceBuild, ScopedTypeError, WorkspaceBuildError,
     checked_workspace_from_loaded_package,
 };
-#[cfg(not(target_family = "wasm"))]
-use crate::workspace_support::{checked_workspace_from_path, checked_workspace_from_single_file};
 use par_core::frontend::{
     Definition, DefinitionBody,
     language::{PackageId, Universal},
@@ -143,29 +143,15 @@ impl BuildResult {
         }
     }
 
-    #[cfg(not(target_family = "wasm"))]
-    pub(super) fn from_single_file_package(
-        source: &str,
-        file_path: PathBuf,
-        max_interactions: u32,
-    ) -> Self {
-        match checked_workspace_from_single_file(&file_path, "Main.par", source) {
-            Ok(build) => Self::from_checked_build(build, max_interactions),
-            Err(WorkspaceBuildError::Discovery(error)) => Self::DiscoveryError { error },
-            Err(WorkspaceBuildError::Workspace(error)) => Self::WorkspaceError { error },
-        }
-    }
-
     pub(super) fn from_loaded_package(
         files: Vec<LoadedPackageFile>,
         root_package: PackageId,
         max_interactions: u32,
     ) -> Self {
-        match checked_workspace_from_loaded_package(files, root_package) {
-            Ok(build) => Self::from_checked_build(build, max_interactions),
-            Err(WorkspaceBuildError::Discovery(error)) => Self::DiscoveryError { error },
-            Err(WorkspaceBuildError::Workspace(error)) => Self::WorkspaceError { error },
-        }
+        Self::from_workspace_build_result(
+            checked_workspace_from_loaded_package(files, root_package),
+            max_interactions,
+        )
     }
 
     #[cfg(not(target_family = "wasm"))]
@@ -174,7 +160,17 @@ impl BuildResult {
         overrides: SourceOverrides,
         max_interactions: u32,
     ) -> Self {
-        match checked_workspace_from_path(active_file_path, Some(&overrides)) {
+        Self::from_workspace_build_result(
+            checked_workspace_from_path(active_file_path, Some(&overrides)),
+            max_interactions,
+        )
+    }
+
+    fn from_workspace_build_result(
+        result: Result<CheckedWorkspaceBuild, WorkspaceBuildError>,
+        max_interactions: u32,
+    ) -> Self {
+        match result {
             Ok(build) => Self::from_checked_build(build, max_interactions),
             Err(WorkspaceBuildError::Discovery(error)) => Self::DiscoveryError { error },
             Err(WorkspaceBuildError::Workspace(error)) => Self::WorkspaceError { error },

@@ -26,8 +26,6 @@ pub(super) enum SourceSetKind {
     BundledExamples,
     #[cfg(not(target_family = "wasm"))]
     DiskPackage,
-    #[cfg(not(target_family = "wasm"))]
-    SingleFile,
 }
 
 pub(super) struct SourceBuffer {
@@ -67,9 +65,9 @@ impl SourceSet {
         let file_path = fs::canonicalize(&file_path).unwrap_or(file_path);
         match PackageLayout::find_from(&file_path) {
             Ok(layout) => Self::from_package_layout(layout, &file_path),
-            Err(WorkspaceDiscoveryError::PackageRootNotFound { .. }) => {
-                Self::from_single_file(file_path)
-            }
+            Err(WorkspaceDiscoveryError::PackageRootNotFound { .. }) => Err(String::from(
+                "This file is not a part of a Par package. Create a package using `par new`.",
+            )),
             Err(error) => Err(error.to_string()),
         }
     }
@@ -107,26 +105,6 @@ impl SourceSet {
             kind: SourceSetKind::DiskPackage,
             buffers,
             active,
-        })
-    }
-
-    #[cfg(not(target_family = "wasm"))]
-    fn from_single_file(file_path: PathBuf) -> Result<Self, String> {
-        let source = fs::read_to_string(&file_path)
-            .map_err(|error| format!("Failed to read {}: {error}", file_path.display()))?;
-        let relative_path_from_src = file_path
-            .file_name()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("Main.par"));
-        Ok(Self {
-            kind: SourceSetKind::SingleFile,
-            buffers: vec![SourceBuffer::disk(
-                FileName::from(file_path.clone()),
-                relative_path_from_src,
-                file_path,
-                source,
-            )],
-            active: 0,
         })
     }
 

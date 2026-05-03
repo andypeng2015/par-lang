@@ -39,6 +39,8 @@ pub struct Playground {
     #[cfg(target_family = "wasm")]
     pending_web_clipboard_paste: Arc<Mutex<Option<String>>>,
     completer: Completer,
+    #[cfg(not(target_family = "wasm"))]
+    open_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,6 +133,8 @@ impl Playground {
             #[cfg(target_family = "wasm")]
             pending_web_clipboard_paste: Arc::new(Mutex::new(None)),
             completer: Completer::new_with_syntax(&par_syntax()).with_auto_indent(),
+            #[cfg(not(target_family = "wasm"))]
+            open_error: None,
         });
 
         #[cfg(not(target_family = "wasm"))]
@@ -263,6 +267,9 @@ impl eframe::App for Playground {
 
             self.show_interaction(ui);
         });
+
+        #[cfg(not(target_family = "wasm"))]
+        self.show_open_error_dialog(ui.ctx());
     }
 }
 
@@ -392,10 +399,7 @@ impl Playground {
                 ui.close();
             }
 
-            if matches!(
-                self.sources.kind(),
-                SourceSetKind::DiskPackage | SourceSetKind::SingleFile
-            ) {
+            if matches!(self.sources.kind(), SourceSetKind::DiskPackage) {
                 if ui
                     .add_enabled(
                         self.sources.can_save_active(),
@@ -457,9 +461,39 @@ impl Playground {
 
     #[cfg(not(target_family = "wasm"))]
     fn open(&mut self, file_path: PathBuf) {
-        if let Ok(sources) = SourceSet::open_disk(file_path) {
-            self.sources = sources;
-            self.clear_build_and_interaction();
+        match SourceSet::open_disk(file_path) {
+            Ok(sources) => {
+                self.sources = sources;
+                self.clear_build_and_interaction();
+                self.open_error = None;
+            }
+            Err(message) => {
+                self.open_error = Some(message);
+            }
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    fn show_open_error_dialog(&mut self, ctx: &egui::Context) {
+        let Some(message) = self.open_error.clone() else {
+            return;
+        };
+        let mut close = false;
+
+        egui::Window::new("Could not open file")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+            .show(ctx, |ui| {
+                ui.label(message);
+                ui.add_space(8.0);
+                if ui.button(egui::RichText::new("OK").strong()).clicked() {
+                    close = true;
+                }
+            });
+
+        if close {
+            self.open_error = None;
         }
     }
 
@@ -508,18 +542,6 @@ impl Playground {
                 BuildResult::from_package_with_overrides(
                     active_path,
                     self.sources.source_overrides(),
-                    self.max_interactions,
-                )
-            }
-            #[cfg(not(target_family = "wasm"))]
-            SourceSetKind::SingleFile => {
-                let Some(active_path) = self.sources.active_disk_path() else {
-                    self.built_code = Arc::from(self.sources.active_source());
-                    return;
-                };
-                BuildResult::from_single_file_package(
-                    self.sources.active_source(),
-                    active_path.to_path_buf(),
                     self.max_interactions,
                 )
             }
