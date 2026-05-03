@@ -27,7 +27,6 @@ pub struct Playground {
     built_code: Arc<str>,
     editor_font_size: f32,
     show_compiled: bool,
-    show_ic: bool,
     element: Option<Arc<Mutex<Element>>>,
     cursor_pos: (u32, u32),
     theme_mode: ThemeMode,
@@ -124,7 +123,6 @@ impl Playground {
             built_code: Arc::from(""),
             editor_font_size: 16.0,
             show_compiled: false,
-            show_ic: false,
             element: None,
             cursor_pos: (0, 0),
             theme_mode: ThemeMode::System,
@@ -700,7 +698,6 @@ impl Playground {
                             &mut self.show_compiled,
                             egui::RichText::new("Show compiled"),
                         );
-                        ui.checkbox(&mut self.show_ic, egui::RichText::new("Show IC"));
                     }
                 });
             });
@@ -732,19 +729,7 @@ impl Playground {
                         }
                     }
 
-                    if self.show_ic {
-                        if let Some(rt_compiled) = self.build.rt_compiled() {
-                            CodeEditor::default()
-                                .id_source("rt_compiled")
-                                .with_rows(32)
-                                .with_fontsize(self.editor_font_size)
-                                .with_theme(theme)
-                                .with_numlines(true)
-                                .show(ui, &mut format!("{}", rt_compiled));
-                        }
-                    }
-
-                    if !self.show_compiled && !self.show_ic {
+                    if !self.show_compiled {
                         if let Some(element) = &mut self.element {
                             element.lock().unwrap().show(ui);
                         }
