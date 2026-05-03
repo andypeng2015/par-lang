@@ -33,6 +33,16 @@ fn check_all_examples() -> Result<(), String> {
 }
 
 #[test]
+fn check_playground_examples() -> Result<(), String> {
+    run_with_large_stack(|| {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("playground-examples");
+        eprintln!("Checking {:?}", d);
+        check(d)
+    })
+}
+
+#[test]
 fn test_all_files() -> Result<(), String> {
     run_with_large_stack(|| {
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

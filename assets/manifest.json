@@ -1,6 +1,6 @@
 {
-  "name": "egui Template PWA",
-  "short_name": "egui-template-pwa",
+  "name": "Par Playground",
+  "short_name": "Par",
   "icons": [
     {
       "src": "./assets/icon-256.png",

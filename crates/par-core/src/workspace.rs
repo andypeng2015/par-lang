@@ -1349,6 +1349,12 @@ fn collect_source_files(
     Ok(files)
 }
 
+pub fn load_package_source_files(
+    layout: &PackageLayout,
+) -> Result<Vec<LoadedPackageFile>, PackageLoadError> {
+    collect_source_files(layout, None)
+}
+
 pub fn parse_loaded_files(
     files: Vec<LoadedPackageFile>,
 ) -> Result<ParsedPackage, PackageLoadError> {

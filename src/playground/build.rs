@@ -1,17 +1,26 @@
 use std::fmt::Write;
+#[cfg(not(target_family = "wasm"))]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::package_utils::SourceLookup;
 use crate::workspace_support::{
-    CheckedWorkspaceBuild, ScopedTypeError, WorkspaceBuildError, checked_workspace_from_path,
-    checked_workspace_from_single_file,
+    CheckedWorkspaceBuild, ScopedTypeError, WorkspaceBuildError,
+    checked_workspace_from_loaded_package,
 };
-use par_core::frontend::{Definition, DefinitionBody, language::Universal, process::Expression};
+#[cfg(not(target_family = "wasm"))]
+use crate::workspace_support::{checked_workspace_from_path, checked_workspace_from_single_file};
+use par_core::frontend::{
+    Definition, DefinitionBody,
+    language::{PackageId, Universal},
+    process::Expression,
+};
 use par_core::source::FileName;
+#[cfg(not(target_family = "wasm"))]
+use par_core::workspace::SourceOverrides;
 use par_core::{
     runtime::{Compiled, RuntimeCompilerError},
-    workspace::{CheckedWorkspace, WorkspaceDiscoveryError, WorkspaceError},
+    workspace::{CheckedWorkspace, LoadedPackageFile, WorkspaceDiscoveryError, WorkspaceError},
 };
 use par_runtime::linker::Linked;
 
@@ -134,6 +143,7 @@ impl BuildResult {
         }
     }
 
+    #[cfg(not(target_family = "wasm"))]
     pub(super) fn from_single_file_package(
         source: &str,
         file_path: PathBuf,
@@ -146,23 +156,26 @@ impl BuildResult {
         }
     }
 
-    pub(super) fn from_package_active_file(
-        active_file_path: &Path,
-        active_source: &str,
+    pub(super) fn from_loaded_package(
+        files: Vec<LoadedPackageFile>,
+        root_package: PackageId,
         max_interactions: u32,
     ) -> Self {
-        let mut overrides = std::collections::HashMap::new();
-        overrides.insert(active_file_path.to_path_buf(), active_source.to_owned());
+        match checked_workspace_from_loaded_package(files, root_package) {
+            Ok(build) => Self::from_checked_build(build, max_interactions),
+            Err(WorkspaceBuildError::Discovery(error)) => Self::DiscoveryError { error },
+            Err(WorkspaceBuildError::Workspace(error)) => Self::WorkspaceError { error },
+        }
+    }
 
+    #[cfg(not(target_family = "wasm"))]
+    pub(super) fn from_package_with_overrides(
+        active_file_path: &Path,
+        overrides: SourceOverrides,
+        max_interactions: u32,
+    ) -> Self {
         match checked_workspace_from_path(active_file_path, Some(&overrides)) {
             Ok(build) => Self::from_checked_build(build, max_interactions),
-            Err(WorkspaceBuildError::Discovery(WorkspaceDiscoveryError::PackageRootNotFound {
-                ..
-            })) => Self::from_single_file_package(
-                active_source,
-                active_file_path.to_path_buf(),
-                max_interactions,
-            ),
             Err(WorkspaceBuildError::Discovery(error)) => Self::DiscoveryError { error },
             Err(WorkspaceBuildError::Workspace(error)) => Self::WorkspaceError { error },
         }

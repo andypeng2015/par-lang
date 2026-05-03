@@ -110,13 +110,13 @@ pub fn default_workspace_packages_from_path(
     inject_builtin_packages(discovered)
 }
 
-pub fn default_workspace_packages_from_parsed(local: ParsedPackage) -> WorkspacePackages {
+pub fn default_workspace_packages_from_parsed(
+    root_package: PackageId,
+    local: ParsedPackage,
+) -> WorkspacePackages {
     inject_builtin_packages(WorkspacePackages {
-        root_package: PackageId::Special(literal!("__synthetic__")),
-        packages: vec![WorkspacePackage::new(
-            PackageId::Special(literal!("__synthetic__")),
-            local,
-        )],
+        root_package: root_package.clone(),
+        packages: vec![WorkspacePackage::new(root_package, local)],
     })
     .expect("synthetic workspace should not conflict with builtin aliases")
 }
@@ -138,12 +138,22 @@ pub(crate) fn checked_workspace_from_path(
 }
 
 fn checked_workspace_from_parsed(
+    root_package: PackageId,
     parsed: ParsedPackage,
 ) -> Result<CheckedWorkspaceBuild, WorkspaceBuildError> {
-    let workspace_packages = default_workspace_packages_from_parsed(parsed);
+    let workspace_packages = default_workspace_packages_from_parsed(root_package, parsed);
     let workspace =
         assemble_default_workspace(workspace_packages).map_err(WorkspaceBuildError::Workspace)?;
     Ok(CheckedWorkspaceBuild::from_workspace(workspace))
+}
+
+pub(crate) fn checked_workspace_from_loaded_package(
+    files: Vec<LoadedPackageFile>,
+    root_package: PackageId,
+) -> Result<CheckedWorkspaceBuild, WorkspaceBuildError> {
+    let parsed = parse_loaded_files(files)
+        .map_err(|error| WorkspaceBuildError::Discovery(WorkspaceDiscoveryError::Load(error)))?;
+    checked_workspace_from_parsed(root_package, parsed)
 }
 
 pub(crate) fn checked_workspace_from_single_file(
@@ -155,13 +165,14 @@ pub(crate) fn checked_workspace_from_single_file(
         .file_name()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(fallback_file_name));
-    let parsed = parse_loaded_files(vec![LoadedPackageFile {
-        name: FileName::from(file_path),
-        relative_path_from_src,
-        source: source.to_owned(),
-    }])
-    .map_err(|error| WorkspaceBuildError::Discovery(WorkspaceDiscoveryError::Load(error)))?;
-    checked_workspace_from_parsed(parsed)
+    checked_workspace_from_loaded_package(
+        vec![LoadedPackageFile {
+            name: FileName::from(file_path),
+            relative_path_from_src,
+            source: source.to_owned(),
+        }],
+        PackageId::Special(literal!("__synthetic__")),
+    )
 }
 
 fn inject_builtin_packages(

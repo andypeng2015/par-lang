@@ -1,13 +1,15 @@
 use std::{
     collections::BTreeSet,
-    fs::File,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, Mutex},
-    time::SystemTime,
 };
 
-use super::{build::BuildResult, readback::Element, run_menu};
-use core::time::Duration;
+use super::{
+    build::BuildResult,
+    readback::Element,
+    run_menu,
+    sources::{SourceSet, SourceSetKind},
+};
 use eframe::egui::{self, RichText, Theme};
 use egui_code_editor::{CodeEditor, ColorTheme, Completer, Syntax};
 use futures::task::Spawn;
@@ -19,46 +21,8 @@ use par_core::source::FileName;
 use par_runtime::spawn::TokioSpawn;
 use tokio_util::sync::CancellationToken;
 
-const DEFAULT_CODE: &str = r#"module Playground
-
-import {
-  @core/Int
-  @core/Nat
-}
-
-def Describe = [number: Int] if {
-  number < 0       => "Negative",
-  number == 0      => "Zero",
-  0 < number < 100 => "Small",
-  else             => "Incomprehensible",
-}
-
-dec Factorial : [Nat] Nat
-def Factorial = [n]
-  Nat.Range(1, n).begin.case {
-    .end!       => 1,
-    .item(x) xs => x * xs.loop,
-  }
-
-dec Fibonacci : iterative choice {
-  .next  => (Nat) self,
-  .close => !,
-}
-
-def Fibonacci = do {
-  let a = 0
-  let b = 1
-} in begin case {
-  .next => do {
-    let (a, b)! = (b, a + b)!
-  } in (a) loop,
-  
-  .close => !,
-}"#;
-
 pub struct Playground {
-    file_path: Option<PathBuf>,
-    code: String,
+    sources: SourceSet,
     build: BuildResult,
     built_code: Arc<str>,
     editor_font_size: f32,
@@ -71,7 +35,6 @@ pub struct Playground {
     _rt: tokio::runtime::Runtime,
     spawner: Arc<dyn Spawn + Send + Sync + 'static>,
     cancel_token: Option<CancellationToken>,
-    file_old_mtime: Option<SystemTime>,
     max_interactions: u32,
     #[cfg(target_family = "wasm")]
     pending_web_clipboard_paste: Arc<Mutex<Option<String>>>,
@@ -150,9 +113,8 @@ impl Playground {
         #[cfg(target_family = "wasm")]
         let spawner = Arc::new(WasmSpawn::new());
 
-        let mut playground = Box::new(Self {
-            file_path: file_path.clone(),
-            code: DEFAULT_CODE.to_owned(),
+        let playground = Box::new(Self {
+            sources: SourceSet::bundled_examples(),
             build: BuildResult::None,
             built_code: Arc::from(""),
             editor_font_size: 16.0,
@@ -165,25 +127,32 @@ impl Playground {
             _rt: runtime,
             spawner,
             cancel_token: None,
-            file_old_mtime: None,
             max_interactions,
             #[cfg(target_family = "wasm")]
             pending_web_clipboard_paste: Arc::new(Mutex::new(None)),
             completer: Completer::new_with_syntax(&par_syntax()).with_auto_indent(),
         });
 
-        if let Some(path) = file_path {
-            playground.open(path);
+        #[cfg(not(target_family = "wasm"))]
+        {
+            let mut playground = playground;
+            if let Some(path) = file_path {
+                playground.open(path);
+            }
+            playground
         }
-
-        playground
+        #[cfg(target_family = "wasm")]
+        {
+            let _ = file_path;
+            playground
+        }
     }
 }
 
 impl eframe::App for Playground {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if let Ok(e) = &mut crate::CRASH_STR.try_lock() {
-            **e = Some(self.code.clone());
+            **e = Some(self.sources.active_source().to_owned());
         }
 
         let system_dark = ui
@@ -204,29 +173,7 @@ impl eframe::App for Playground {
         #[cfg(target_family = "wasm")]
         self.inject_pending_web_clipboard_paste(ui.ctx());
 
-        if let Some(mtime) = self.file_mtime() {
-            match self.file_old_mtime {
-                None => {}
-                Some(old_mtime) => {
-                    if matches!(
-                        mtime
-                            .duration_since(old_mtime)
-                            .map(|x| x > Duration::new(0, 0)),
-                        Ok(true)
-                    ) {
-                        if let Ok(code) = self
-                            .file_path
-                            .as_ref()
-                            .ok_or(())
-                            .and_then(|path| self.reopen(path).map_err(|_| ()))
-                        {
-                            self.code = code;
-                        }
-                        self.file_old_mtime = Some(mtime);
-                    }
-                }
-            }
-        }
+        self.sources.reload_active_if_changed();
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let initial_editor_width = ui.available_width() / 2.0;
@@ -249,46 +196,8 @@ impl eframe::App for Playground {
 
                             ui.add_space(5.0);
 
-                            egui::containers::menu::MenuButton::from_button(egui::Button::new(
-                                egui::RichText::new("File").strong(),
-                            ))
-                            .ui(ui, |ui| {
-                                if ui.button(egui::RichText::new("Open...").strong()).clicked() {
-                                    self.file_old_mtime = None;
-                                    self.open_file();
-                                    ui.close();
-                                }
-
-                                if let Some(path) = self.file_path.clone() {
-                                    if ui.button(egui::RichText::new("Save").strong()).clicked() {
-                                        self.save_file(&path);
-                                        ui.close();
-                                    }
-
-                                    let mut do_reload = self.file_old_mtime.is_some();
-                                    if ui
-                                        .checkbox(
-                                            &mut do_reload,
-                                            egui::RichText::new("Reload").strong(),
-                                        )
-                                        .clicked()
-                                    {
-                                        self.file_old_mtime = match self.file_old_mtime {
-                                            None => self.file_mtime(),
-                                            Some(_) => None,
-                                        };
-                                        ui.close();
-                                    }
-                                }
-
-                                if ui
-                                    .button(egui::RichText::new("Save as...").strong())
-                                    .clicked()
-                                {
-                                    self.save_file_as();
-                                    ui.close();
-                                }
-                            });
+                            #[cfg(not(target_family = "wasm"))]
+                            self.show_file_menu(ui);
 
                             ui.add_space(5.0);
 
@@ -309,17 +218,7 @@ impl eframe::App for Playground {
 
                             ui.add_space(5.0);
 
-                            if let Some(file_name) =
-                                self.file_path.as_ref().and_then(|p| p.file_name())
-                            {
-                                ui.label(
-                                    egui::RichText::new(format!(
-                                        "{}",
-                                        file_name.to_str().unwrap_or("")
-                                    ))
-                                    .strong(),
-                                );
-                            }
+                            self.show_source_menu(ui);
                         });
 
                         ui.separator();
@@ -330,10 +229,15 @@ impl eframe::App for Playground {
                             .with_fontsize(self.editor_font_size)
                             .with_theme(self.get_theme(ui))
                             .with_numlines(true)
-                            .show_with_completer(ui, &mut self.code, &mut self.completer);
+                            .show_with_completer(
+                                ui,
+                                self.sources.active_source_mut(),
+                                &mut self.completer,
+                            );
 
                         if let Some(cursor) = editor.cursor_range {
-                            self.cursor_pos = row_and_column(&self.code, cursor.primary.index);
+                            self.cursor_pos =
+                                row_and_column(self.sources.active_source(), cursor.primary.index);
                         }
 
                         if let (Some(checked), Some(hover_pos)) =
@@ -478,66 +382,100 @@ impl Playground {
     }
 
     #[cfg(not(target_family = "wasm"))]
+    fn show_file_menu(&mut self, ui: &mut egui::Ui) {
+        egui::containers::menu::MenuButton::from_button(egui::Button::new(
+            egui::RichText::new("File").strong(),
+        ))
+        .ui(ui, |ui| {
+            if ui.button(egui::RichText::new("Open...").strong()).clicked() {
+                self.open_file();
+                ui.close();
+            }
+
+            if matches!(
+                self.sources.kind(),
+                SourceSetKind::DiskPackage | SourceSetKind::SingleFile
+            ) {
+                if ui
+                    .add_enabled(
+                        self.sources.can_save_active(),
+                        egui::Button::new(egui::RichText::new("Save").strong()),
+                    )
+                    .clicked()
+                {
+                    let _ = self.sources.save_active();
+                    ui.close();
+                }
+
+                let mut do_reload = self.sources.active_reload_enabled();
+                if ui
+                    .checkbox(&mut do_reload, egui::RichText::new("Reload").strong())
+                    .clicked()
+                {
+                    self.sources.set_active_reload_enabled(do_reload);
+                    ui.close();
+                }
+            }
+        });
+    }
+
+    fn show_source_menu(&mut self, ui: &mut egui::Ui) {
+        let (response, _) = egui::containers::menu::MenuButton::from_button(
+            egui::Button::new(
+                RichText::new(self.sources.active_label())
+                    .strong()
+                    .color(egui::Color32::BLACK),
+            )
+            .right_text(RichText::new("v").color(egui::Color32::TRANSPARENT))
+            .fill(blue().lerp_to_gamma(egui::Color32::WHITE, 0.55)),
+        )
+        .ui(ui, |ui| {
+            for index in 0..self.sources.buffer_count() {
+                let label = self.sources.buffer_label(index);
+                if ui
+                    .selectable_label(self.sources.is_active(index), label)
+                    .clicked()
+                {
+                    self.switch_to_source(index);
+                    ui.close();
+                }
+            }
+        });
+        paint_dropdown_arrow(ui, response.rect, egui::Color32::BLACK);
+    }
+
+    fn switch_to_source(&mut self, index: usize) {
+        self.sources.set_active(index);
+    }
+
+    #[cfg(not(target_family = "wasm"))]
     fn open_file(&mut self) {
         if let Some(path) = rfd::FileDialog::new().pick_file() {
             self.open(path);
         }
     }
 
-    #[cfg(target_family = "wasm")]
-    fn open_file(&mut self) {}
-
+    #[cfg(not(target_family = "wasm"))]
     fn open(&mut self, file_path: PathBuf) {
-        if let Ok(file_content) = File::open(&file_path).and_then(|mut file| {
-            use std::io::Read;
-            let mut buf = String::new();
-            file.read_to_string(&mut buf)?;
-            Ok(buf)
-        }) {
-            self.file_path = Some(std::fs::canonicalize(&file_path).unwrap_or(file_path));
-            self.code = file_content;
+        if let Ok(sources) = SourceSet::open_disk(file_path) {
+            self.sources = sources;
+            self.clear_build_and_interaction();
         }
-    }
-
-    fn reopen(&self, file_path: impl AsRef<Path>) -> Result<String, std::io::Error> {
-        let file_path = file_path.as_ref();
-        File::open(file_path).and_then(|mut file| {
-            use std::io::Read;
-            let mut buf = String::new();
-            file.read_to_string(&mut buf)?;
-            Ok(buf)
-        })
     }
 
     #[cfg(not(target_family = "wasm"))]
-    fn save_file_as(&mut self) {
-        if let Some(path) = rfd::FileDialog::new()
-            .set_can_create_directories(true)
-            .save_file()
-        {
-            self.save_file(&path);
-            self.file_path = Some(path);
+    fn clear_build_and_interaction(&mut self) {
+        self.cancel_interaction();
+        self.build = BuildResult::None;
+        self.built_code = Arc::from("");
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    fn cancel_interaction(&mut self) {
+        if let Some(cancel_token) = self.cancel_token.take() {
+            cancel_token.cancel();
         }
-    }
-
-    #[cfg(target_family = "wasm")]
-    fn save_file_as(&mut self) {}
-
-    fn save_file(&mut self, path: &Path) {
-        let _ = File::create(path).and_then(|mut file| {
-            use std::io::Write;
-            file.write_all(self.code.as_bytes())
-        });
-    }
-
-    fn file_mtime(&self) -> Option<SystemTime> {
-        let Ok(metadata) = std::fs::metadata(self.file_path.as_ref()?) else {
-            return None;
-        };
-        let Ok(mtime) = metadata.modified() else {
-            return None;
-        };
-        Some(mtime)
+        self.element = None;
     }
 
     fn get_theme(&self, ui: &egui::Ui) -> ColorTheme {
@@ -550,30 +488,43 @@ impl Playground {
         }
     }
 
-    const FILE_NAME: FileName = FileName(arcstr::literal!("Playground.par"));
-
     fn active_file_name(&self) -> FileName {
-        self.file_path
-            .as_ref()
-            .cloned()
-            .map(FileName::from)
-            .unwrap_or(Self::FILE_NAME)
+        self.sources.active_file_name()
     }
 
     fn recompile(&mut self) {
-        self.build = match self.file_path.as_ref() {
-            Some(file_path) => BuildResult::from_package_active_file(
-                file_path,
-                self.code.as_str(),
+        self.build = match self.sources.kind() {
+            SourceSetKind::BundledExamples => BuildResult::from_loaded_package(
+                self.sources.loaded_files(),
+                SourceSet::bundled_package_id(),
                 self.max_interactions,
             ),
-            None => BuildResult::from_single_file_package(
-                self.code.as_str(),
-                PathBuf::from("Playground.par"),
-                self.max_interactions,
-            ),
+            #[cfg(not(target_family = "wasm"))]
+            SourceSetKind::DiskPackage => {
+                let Some(active_path) = self.sources.active_disk_path() else {
+                    self.built_code = Arc::from(self.sources.active_source());
+                    return;
+                };
+                BuildResult::from_package_with_overrides(
+                    active_path,
+                    self.sources.source_overrides(),
+                    self.max_interactions,
+                )
+            }
+            #[cfg(not(target_family = "wasm"))]
+            SourceSetKind::SingleFile => {
+                let Some(active_path) = self.sources.active_disk_path() else {
+                    self.built_code = Arc::from(self.sources.active_source());
+                    return;
+                };
+                BuildResult::from_single_file_package(
+                    self.sources.active_source(),
+                    active_path.to_path_buf(),
+                    self.max_interactions,
+                )
+            }
         };
-        self.built_code = Arc::from(self.code.as_str());
+        self.built_code = Arc::from(self.sources.active_source());
     }
 
     fn show_interaction(&mut self, ui: &mut egui::Ui) {
@@ -764,4 +715,18 @@ fn green() -> egui::Color32 {
 #[allow(unused)]
 fn blue() -> egui::Color32 {
     egui::Color32::from_hex("#118ab2").unwrap()
+}
+
+fn paint_dropdown_arrow(ui: &egui::Ui, rect: egui::Rect, color: egui::Color32) {
+    let center = egui::pos2(rect.right() - 11.0, rect.center().y + 1.0);
+    let points = vec![
+        egui::pos2(center.x - 4.0, center.y - 2.5),
+        egui::pos2(center.x + 4.0, center.y - 2.5),
+        egui::pos2(center.x, center.y + 2.5),
+    ];
+    ui.painter().add(egui::Shape::convex_polygon(
+        points,
+        color,
+        egui::Stroke::NONE,
+    ));
 }
