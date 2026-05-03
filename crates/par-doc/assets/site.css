@@ -582,19 +582,23 @@ pre,
     padding-inline: 12px;
   }
 
-  .topbar,
   .item-head {
     flex-direction: column;
     align-items: stretch;
   }
 
+  .topbar {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
   .topbar-left {
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
   }
 
   .theme-toggle {
-    align-self: flex-end;
+    margin-left: auto;
   }
 
 }
