@@ -88,11 +88,11 @@ fn provide_boxmap(handle: Handle, map: OrdMap<Data, Arc<Mutex<Handle>>>) {
                     let key = handle.receive_data().await;
                     match map.get(&key) {
                         Some(value) => {
-                            handle.signal(literal!("ok"));
+                            handle.signal(literal!("some"));
                             return handle.link(value.lock().await.duplicate());
                         }
                         None => {
-                            handle.signal(literal!("err"));
+                            handle.signal(literal!("none"));
                             return handle.break_();
                         }
                     }

@@ -176,11 +176,11 @@ fn provide_path(handle: Handle, path: PathBuf) {
                 }
                 "parent" => match path.parent() {
                     Some(p) => {
-                        handle.signal(arcstr::literal!("ok"));
+                        handle.signal(arcstr::literal!("some"));
                         provide_path(handle, p.to_path_buf());
                     }
                     None => {
-                        handle.signal(arcstr::literal!("err"));
+                        handle.signal(arcstr::literal!("none"));
                         handle.break_();
                     }
                 },
@@ -576,11 +576,11 @@ async fn envmap_new(handle: Handle) {
                 match std::env::var_os(name_os) {
                     Some(val) => {
                         let bytes = os_to_bytes(&val);
-                        handle.signal(literal!("ok"));
+                        handle.signal(literal!("some"));
                         return handle.provide_bytes(bytes);
                     }
                     None => {
-                        handle.signal(literal!("err"));
+                        handle.signal(literal!("none"));
                         return handle.break_();
                     }
                 }

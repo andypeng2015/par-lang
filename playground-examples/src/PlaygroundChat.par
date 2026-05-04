@@ -124,7 +124,7 @@ def ServeChat = [api] do {
       messages.entry(username)[pending]
     } in if {
       // If it's present, it means another user with the same username is logged in.
-      pending is .ok pending => do {
+      pending is .some pending => do {
         // Restore the map.
         messages.put(pending)
         // Deny the login.
@@ -145,7 +145,7 @@ def ServeChat = [api] do {
       // If we have no bugs in the fanning, the entry will always be present.
       // The type system can't guarantee that, so let's just handle the opposite
       // case by defaulting to an empty list builder. But, this should not happen.
-      if not pending is .ok pending => {
+      if not pending is .some pending => {
         let pending = List.Builder(type (String) String)
       }
     } in client.case {
@@ -171,7 +171,7 @@ def ServeChat = [api] do {
           messages.entry(to)[pending]
           if {
             // If it exists, the user is logged in.
-            pending is .ok pending => {
+            pending is .some pending => {
               // Add the message to their pending messages.
               messages.put(pending.add((username) content))
               // Notify the client that the message was sent successfully.

@@ -28,7 +28,7 @@ export {
   // - `.name` — get the file name component as bytes.
   // - `.absolute` — get the absolute path as bytes.
   // - `.parts` — get all path components as a list of byte sequences.
-  // - `.parent` — get the parent path, or `.err!` if at root.
+  // - `.parent` — get the parent path, or `.none!` if at root.
   // - `.append(part)` — return a path with one more path component.
   type Path = iterative@append recursive@parent box choice {
     .name => Bytes,

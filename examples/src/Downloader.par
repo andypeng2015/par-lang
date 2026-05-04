@@ -8,7 +8,9 @@ import {
   @core/List
   @core/Map
   @core/Nat
+  @core/Option
   @core/String
+  @core/Result
   @core/Url
   @core/Debug
   @basic/Http
@@ -87,10 +89,11 @@ def DownloadFile = [(sourceUrl, dest)!] chan yield {
   let try@clearResp file = Os.CreateNewFile(dest)
   catch@clearFile err => { file.close; throw err }
 
-  let default(0) totalSize = catch ! => .err! in
-    headers.get("content-length").try
-      ->String.FromBytes
-      ->Nat.FromString
+  let default(0) totalSize =
+    headers.get("content-length")
+      ->Option.Map(type String, box String.FromBytes)
+      ->Option.Map(type Result<!, Nat>, box Nat.FromString)
+      ->Option.FlatMap(type Nat, box [r] Result.ToOption(r))
   yield.item((dest) .started totalSize)
 
   let bytesSinceLastEvent = 0
@@ -202,7 +205,7 @@ def NewProgressTracker: ProgressTracker = do {
 
   .file(name) => do {
     filesInProgress.entry(name)[entry]
-    if not entry is .ok(startTime, expected, downloaded)! => {
+    if not entry is .some(startTime, expected, downloaded)! => {
       let startTime = Time.Now(!)
       let expected = 0
       let downloaded = 0

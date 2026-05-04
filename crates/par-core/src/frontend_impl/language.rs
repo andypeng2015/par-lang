@@ -3111,8 +3111,8 @@ impl Context {
                 typ: (),
                 command: process::Command::Case(
                     Arc::from([
-                        LocalName::from(literal!("err")),
-                        LocalName::from(literal!("ok")),
+                        LocalName::from(literal!("none")),
+                        LocalName::from(literal!("some")),
                     ]),
                     Box::from([
                         Arc::new(process::Process::Let {

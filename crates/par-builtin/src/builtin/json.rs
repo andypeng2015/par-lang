@@ -229,11 +229,11 @@ fn provide_object(handle: Handle, entries: BTreeMap<String, JsonValue>) {
                     let key = handle.receive().string().await;
                     match entries.get(key.as_str()) {
                         Some(value) => {
-                            handle.signal(literal!("ok"));
+                            handle.signal(literal!("some"));
                             provide_json_value(handle, value.clone());
                         }
                         None => {
-                            handle.signal(literal!("err"));
+                            handle.signal(literal!("none"));
                             handle.break_();
                         }
                     }
