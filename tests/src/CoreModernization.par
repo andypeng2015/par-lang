@@ -3,6 +3,8 @@ module CoreModernization
 import {
   @core/Bool
   @core/BoxMap
+  @core/Float
+  @core/Int
   @core/Json
   @core/List
   @core/Map
@@ -126,6 +128,16 @@ def TestBoxMapConstructors : [Test] ! = [test] do {
     .assert("BoxMap.New starts empty", empty.size == 0 and empty.list == {*()})
     .assert("BoxMap.put returns an updated map", inserted.get(KeyC) is .some value and value == "two")
     .assert("BoxMap.delete returns an updated map", deleted.get(KeyB) is .none!)
+} in !
+
+def TestNumberParsingOptions : [Test] ! = [test] do {
+  test
+    .assert("Int.FromString returns .some for valid integers", Int.FromString("-42") is .some n and n == -42)
+    .assert("Int.FromString returns .none! for invalid integers", Int.FromString("x") is .none!)
+    .assert("Nat.FromString returns .some for valid naturals", Nat.FromString("42") is .some n and n == 42)
+    .assert("Nat.FromString returns .none! for negative integers", Nat.FromString("-1") is .none!)
+    .assert("Float.FromString returns .some for valid floats", Float.FromString("1.5") is .some n and Float.Equals(n, 1.5, 0.0))
+    .assert("Float.FromString returns .none! for invalid floats", Float.FromString("x") is .none!)
 } in !
 
 def TestJsonEqualsWithoutListEquals : [Test] ! = [test] do {

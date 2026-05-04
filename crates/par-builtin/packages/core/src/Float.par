@@ -4,6 +4,7 @@ export module Float
 import {
   Bool
   Int
+  Option
   String
 }
 
@@ -40,10 +41,8 @@ export {
   dec ToInt : [Float] Int
 
   // Parses a float literal or one of `NaN`, `Inf`, `-Inf`, `Infinity`, `-Infinity`.
-  dec FromString : [String] either {
-    .ok Float,
-    .err!,
-  }
+  // Returns `.none!` when the string is not valid.
+  dec FromString : [String] Option<Float>
 
   // Negates a float.
   dec Neg : [Float] Float

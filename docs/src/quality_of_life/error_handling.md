@@ -590,7 +590,7 @@ This is separate from `try`/`catch`: `try` unwraps `Result` values and propagate
 - Pattern form (including in receives):
 
   ```par
-  let default(0) n = .none!
+  let default(0) n = Nat.FromString("oops")
   ```
 
   The pattern binds on `.some`, and binds the fallback expression on `.none`.

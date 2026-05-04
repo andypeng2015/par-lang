@@ -149,11 +149,11 @@ async fn int_from_string(mut handle: Handle) {
     let string = handle.receive().string().await;
     match string.as_str().parse::<BigInt>() {
         Ok(num) => {
-            handle.signal(literal!("ok"));
+            handle.signal(literal!("some"));
             handle.provide_int(num);
         }
         Err(_) => {
-            handle.signal(literal!("err"));
+            handle.signal(literal!("none"));
             handle.break_();
         }
     };

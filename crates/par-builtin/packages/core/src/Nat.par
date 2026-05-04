@@ -4,6 +4,7 @@ export module Nat
 import {
   Int
   List
+  Option
   String
 }
 
@@ -52,11 +53,8 @@ export {
   dec Range : [Nat, Nat] List<Nat>
 
   // Parses a decimal string into a natural number.
-  // Returns `.err!` when the string is not a valid non-negative integer.
-  dec FromString : [String] either {
-    .ok Nat,
-    .err!,
-  }
+  // Returns `.none!` when the string is not a valid non-negative integer.
+  dec FromString : [String] Option<Nat>
 }
 
 def Mod = external

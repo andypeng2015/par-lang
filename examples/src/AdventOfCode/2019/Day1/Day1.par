@@ -5,6 +5,7 @@ import {
   @core/Int
   @core/List
   @core/Nat
+  @core/Option
   @core/Result
   @core/String
   @basic/Console
@@ -92,7 +93,9 @@ def Main = chan exit {
   }
 
   let lines = StringLines(input)
-  ListMapTry(type String, type !, type Nat, lines, box Nat.FromString).case {
+  ListMapTry(type String, type !, type Nat, lines, box [line]
+    Nat.FromString(line)->Option.ToResult(!)
+  ).case {
     .err! => {
       console.print("invalid input")
       console.close

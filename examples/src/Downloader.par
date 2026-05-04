@@ -10,7 +10,6 @@ import {
   @core/Nat
   @core/Option
   @core/String
-  @core/Result
   @core/Url
   @core/Debug
   @basic/Http
@@ -92,8 +91,7 @@ def DownloadFile = [(sourceUrl, dest)!] chan yield {
   let default(0) totalSize =
     headers.get("content-length")
       ->Option.Map(type String, box String.FromBytes)
-      ->Option.Map(type Result<!, Nat>, box Nat.FromString)
-      ->Option.FlatMap(type Nat, box [r] Result.ToOption(r))
+      ->Option.FlatMap(type Nat, box Nat.FromString)
   yield.item((dest) .started totalSize)
 
   let bytesSinceLastEvent = 0
