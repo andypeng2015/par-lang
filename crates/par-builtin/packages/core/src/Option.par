@@ -17,14 +17,19 @@ export {
     .none!,
   }
 
+  // Transforms the contained value, if present.
   dec Map : <a>[Option<a>] [type b, box [a] b] Option<b>
 
+  // Transforms the contained value with a computation that may return no value.
   dec FlatMap : <a>[Option<a>] [type b, box [a] Option<b>] Option<b>
 
+  // Keeps the contained value only if it satisfies the predicate.
   dec Filter : <a: box>[Option<a>] [box [a] Bool] Option<a>
 
+  // Converts `.some value` to a singleton list and `.none!` to an empty list.
   dec ToList : <a>[Option<a>] List<a>
 
+  // Converts `.some value` to `.ok value` and `.none!` to the provided error.
   dec ToResult : <a>[Option<a>] <e: box>[e] Result<e, a>
 }
 

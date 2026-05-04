@@ -21,16 +21,23 @@ export {
   // Extracts the `.ok` branch from a `Result<either {}, a>`.
   dec Always : <a>[Result<either {}, a>] a
 
+  // Transforms the `.ok` value, if present.
   dec Map : <e, a>[Result<e, a>] [type b, box [a] b] Result<e, b>
 
+  // Transforms the `.err` value, if present.
   dec MapErr : <e1, a>[Result<e1, a>] [type e2, box [e1] e2] Result<e2, a>
 
+  // Transforms the `.ok` value with a computation that may itself fail.
   dec FlatMap : <e, a>[Result<e, a>] [type b, box [a] Result<e, b>] Result<e, b>
 
+  // Keeps a successful value only if it satisfies the predicate, otherwise
+  // replaces it with the provided error.
   dec Filter : <e, a: box>[Result<e, a>] [box e, box [a] Bool] Result<e, a>
 
+  // Converts `.ok value` to a singleton list and `.err _` to an empty list.
   dec ToList : <e: box, a>[Result<e, a>] List<a>
 
+  // Converts `.ok value` to `.some value` and `.err _` to `.none!`.
   dec ToOption : <e: box, a>[Result<e, a>] Option<a>
 }
 
