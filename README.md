@@ -2,12 +2,12 @@
 ## ...with linear types and duality
 
 - 💬 **Join our [Discord](https://discord.gg/8KsypefW99),** or use the
-  [Discussions](https://github.com/faiface/par-lang/discussions) as a forum to ask questions and share ideas!
+  [Discussions](https://github.com/par-team/par-lang/discussions) as a forum to ask questions and share ideas!
 
 - 🫶 If you'd like to support my effort to bring the power of linear logic into practical programming, you can do
   it via [GitHub Sponsors](https://github.com/sponsors/faiface).
 
-## 🚀 Get started with the [documentation](https://faiface.github.io/par-lang/introduction.html)
+## 🚀 Get started with the [Book](https://par.run/book/)
 
 ## 🛠️ [VSCode extension](https://marketplace.visualstudio.com/items?itemName=par-lang.par-vscode)
 
@@ -30,11 +30,11 @@ tackle a problem, there will likely be ways to express it.
 
 _(Dual types are on the same line.)_
 
-- [**Pairs**](https://faiface.github.io/par-lang/types/pair.html) (easily extensible to tuples), and [**functions**](https://faiface.github.io/par-lang/types/function.html) (naturally curried).
-- [**Eithers**](https://faiface.github.io/par-lang/types/either.html) (sum types), and [**choices**](https://faiface.github.io/par-lang/types/choice.html) (unusual, but powerful dispatchers).
-- [**Recursive**](https://faiface.github.io/par-lang/types/recursive.html) (finite), and [**iterative**](https://faiface.github.io/par-lang/types/iterative.html) (co-recursive, potentially infinite) types, with totality checking.
-- [**Universally,**](https://faiface.github.io/par-lang/types/forall.html) and [**existentially**](https://faiface.github.io/par-lang/types/exists.html) quantified generic functions and values.
-- [**Unit,**](https://faiface.github.io/par-lang/types/unit.html) and [**continuation.**](https://faiface.github.io/par-lang/types/continuation.html)
+- [**Pairs**](https://par.run/book/types/pair) (easily extensible to tuples), and [**functions**](https://par.run/book/types/function) (naturally curried).
+- [**Eithers**](https://par.run/book/types/either) (sum types), and [**choices**](https://par.run/book/types/choice) (unusual, but powerful dispatchers).
+- [**Recursive**](https://par.run/book/types/recursive) (finite), and [**iterative**](https://par.run/book/types/iterative) (co-recursive, potentially infinite) types, with totality checking.
+- [**Universally,**](https://par.run/book/types/forall) and [**existentially**](https://par.run/book/types/exists) quantified generic functions and values.
+- [**Unit,**](https://par.run/book/types/unit) and [**continuation.**](https://par.run/book/types/continuation)
 
 These **orthogonal concepts** combine to give rise to a rich world of types and semantics.
 
