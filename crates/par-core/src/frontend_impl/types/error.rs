@@ -277,7 +277,7 @@ impl<S: Clone + Eq + std::hash::Hash + std::fmt::Display> TypeError<S> {
                 let labels = labels_from_span(code, span);
 
                 // filter out internal pattern matching variables
-                // issue #44: https://github.com/faiface/par-lang/issues/44
+                // issue #44: https://github.com/par-team/par-lang/issues/44
                 if param.is_match() {
                     miette::miette!(
                         labels = labels,

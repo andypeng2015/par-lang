@@ -10,9 +10,9 @@ theme = "par-theme"
 default-theme = "light"
 preferred-dark-theme = "navy"
 smart-punctuation = true
-git-repository-url = "https://github.com/faiface/par-lang/tree/main/docs"
+git-repository-url = "https://github.com/par-team/par-lang/tree/main/docs"
 mathjax-support = true
-edit-url-template = "https://github.com/faiface/par-lang/edit/main/docs/{path}"
+edit-url-template = "https://github.com/par-team/par-lang/edit/main/docs/{path}"
 
 [output.html.code.hidelines]
 par = "?"

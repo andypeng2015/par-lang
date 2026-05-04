@@ -82,7 +82,7 @@ impl Drop for InstanceInner {
     fn drop(&mut self) {
         // This is a debugging tool to detect leaks.
         // However it causes a panic in certain cases when cancelling a run so it's commented for now
-        // see issue: https://github.com/faiface/par-lang/issues/165 as an example
+        // see issue: https://github.com/par-team/par-lang/issues/165 as an example
         // for i in self.0.lock().unwrap().as_mut().iter() {
         //     if !i.is_none() {
         //         panic!(

@@ -21,11 +21,11 @@ The easiest way to do that is via [rustup](https://rustup.rs). The website instr
 ### 2. Clone Par's repository
 
 The next step is to obtain Par's source code. That is located on
-[GitHub](https://github.com/faiface/par-lang). Clone it locally by running the following
+[GitHub](https://github.com/par-team/par-lang). Clone it locally by running the following
 in your terminal:
 
 ```
-$ git clone https://github.com/faiface/par-lang
+$ git clone https://github.com/par-team/par-lang
 ```
 
 ### 3. Build and install Par's CLI tool

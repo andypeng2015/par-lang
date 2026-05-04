@@ -46,7 +46,7 @@ impl Error {
     pub fn display(&self, _code: &str) -> String {
         "An INet compilation error was encountered. This is a BUG.\n\
         Please file an issue along with the code at\n\
-        https://github.com/faiface/par-lang/issues/new"
+        https://github.com/par-team/par-lang/issues/new"
             .to_string()
         //TODO: fix error messages
         /*match self {
