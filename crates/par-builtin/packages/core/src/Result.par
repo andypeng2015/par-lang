@@ -1,8 +1,7 @@
 // `Result<e, a>` carries either `.ok a` or `.err e`.
 //
-// ```par
-// let try value = Result.Always(value)
-// ```
+// - `.ok a` means a successful result.
+// - `.err e` means an error has occurred.
 export module Result
 
 import {
