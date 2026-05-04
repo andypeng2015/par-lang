@@ -180,15 +180,15 @@ async fn nat_from_string(mut handle: Handle) {
     match string.as_str().parse::<BigInt>() {
         Ok(num) => {
             if num >= BigInt::ZERO {
-                handle.signal(literal!("ok"));
+                handle.signal(literal!("some"));
                 handle.provide_nat(num);
             } else {
-                handle.signal(literal!("err"));
+                handle.signal(literal!("none"));
                 handle.break_();
             }
         }
         Err(_) => {
-            handle.signal(literal!("err"));
+            handle.signal(literal!("none"));
             handle.break_();
         }
     };

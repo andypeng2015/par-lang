@@ -75,7 +75,10 @@ type Result<e, a> = either {
   .ok a,
 }
 
-type Option<a> = Result<!, a>
+type Option<a> = either {
+  .none!,
+  .some a,
+}
 ```
 
 An `is` condition checks an `either` and binds its payload. Its shape is:
@@ -140,8 +143,8 @@ condition and inside the branch.
 ```par
 dec CountStatus : [Option<Nat>] String
 def CountStatus = [count] if {
-  count is .ok n and n == 0 => "zero",
-  count is .ok _ => "non-zero",
+  count is .some n and n == 0 => "zero",
+  count is .some _ => "non-zero",
   else => "missing",
 }
 ```
@@ -149,12 +152,12 @@ def CountStatus = [count] if {
 Step by step:
 
 - Try the first branch.
-  - First evaluate `count is .ok n`. If it fails, the whole `and` fails.
+  - First evaluate `count is .some n`. If it fails, the whole `and` fails.
   - If it succeeds, `n` is bound and Par evaluates `n == 0`.
   - Only if both parts succeed does the branch return `"zero"`.
-- If the first branch fails, try the second branch `count is .ok _`, which
+- If the first branch fails, try the second branch `count is .some _`, which
   matches any present value and returns `"non-zero"`.
-- If both branches fail, `count` must be `.err!`, so `else` returns `"missing"`.
+- If both branches fail, `count` must be `.none!`, so `else` returns `"missing"`.
 
 ### `and` with two bindings
 

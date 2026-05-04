@@ -567,19 +567,25 @@ This function uses `Bytes.ParserFromReader` to convert the chunked `Bytes.Reader
 
 ## Providing defaults with `default`
 
-Sometimes you don’t want to propagate an error — you want to replace it with a fallback and keep going. The `default` sugar does exactly that, and unlike `try`, it is completely standalone: it does not require a surrounding `catch`, and it is valid even in nested expression positions.
+Sometimes you don’t want to branch on a missing optional value — you want to replace it with a fallback and keep going. The `default` sugar does exactly that for `Option` values.
+
+This is separate from `try`/`catch`: `try` unwraps `Result` values and propagates `.err`, while `default` unwraps `Option` values and replaces `.none!`. If you have a `Result` and want to ignore the error, convert it first with `Result.ToOption`.
 
 - Postfix form (expressions/commands):
 
   ```par
-  let r1: Result<!, Int> = .ok 7
-  let r2: Result<!, Int> = .err!
+  let r1: Option<Int> = .some 7
+  let r2: Option<Int> = .none!
 
   let x = r1.default(0)   // x = 7
   let y = r2.default(0)   // y = 0
+
+  let result: Result<String, Int> = .err "not a number"
+  let option = Result.ToOption(result)
+  let z = option.default(0)  // z = 0
   ```
 
-  This desugars to a `.case` on the subject: on `.ok` it continues with the unwrapped value, on `.err` it evaluates the fallback expression and uses that value instead. Because it is a local rewrite, it can be used directly in `let` bindings and other expression contexts.
+  This desugars to a `.case` on the subject: on `.some` it continues with the unwrapped value, on `.none` it evaluates the fallback expression and uses that value instead. Because it is a local rewrite, it can be used directly in `let` bindings and other expression contexts.
 
 - Pattern form (including in receives):
 
@@ -587,7 +593,7 @@ Sometimes you don’t want to propagate an error — you want to replace it with
   let default(0) n = Nat.FromString("oops")
   ```
 
-  The pattern binds on `.ok`, and binds the fallback expression on `.err`.
+  The pattern binds on `.some`, and binds the fallback expression on `.none`.
 
   Here’s a practical example that shows why the pattern form is particularly useful with receive commands. It counts word occurrences using a map; when a key is missing, it starts from `0`:
 
@@ -606,4 +612,4 @@ Sometimes you don’t want to propagate an error — you want to replace it with
   } in counts.list
   ```
 
-  In the `.item` branch, `counts.entry(word)` returns a `Result<!, Nat>` via a receive; `default(0)` seamlessly handles the missing case and binds `count` to `0`.
+  In the `.item` branch, `counts.entry(word)` returns an `Option<Nat>` via a receive; `default(0)` seamlessly handles the missing case and binds `count` to `0`.

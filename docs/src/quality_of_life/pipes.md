@@ -100,8 +100,8 @@ returns a head and a tail:
 ```par
 dec Pop : [List<Nat>] (Option<Nat>) List<Nat>
 def Pop = [list] list.case {
-  .end! => (.err!) .end!,
-  .item(x) xs => (.ok x) xs,
+  .end! => (.none!) .end!,
+  .item(x) xs => (.some x) xs,
 }
 
 let numbers = *(10, 20, 30)

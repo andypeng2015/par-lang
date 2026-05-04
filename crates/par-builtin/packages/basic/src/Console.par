@@ -8,7 +8,7 @@
 export module Console
 
 import {
-  @core/Option
+  @core/Result
   @core/String
 }
 
@@ -33,7 +33,7 @@ export {
   type Console = iterative choice {
     .close => !,
     .print(String) => self,
-    .prompt(String) => (Option<String>) self,
+    .prompt(String) => (Result<!, String>) self,
   }
 
   // Opens a new `Console` connected to stdin/stdout.

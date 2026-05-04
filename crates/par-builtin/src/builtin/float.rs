@@ -396,11 +396,11 @@ async fn float_from_string(mut handle: Handle) {
     let string = handle.receive().string().await;
     match parse_float_text(string.as_str()) {
         Some(value) => {
-            handle.signal(literal!("ok"));
+            handle.signal(literal!("some"));
             handle.provide_float(value);
         }
         None => {
-            handle.signal(literal!("err"));
+            handle.signal(literal!("none"));
             handle.break_();
         }
     }

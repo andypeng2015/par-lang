@@ -1,14 +1,59 @@
-// `Option<a>` is `Result<!, a>`.
+// `Option<a>` is either `.some a` or `.none!`.
 //
-// - `.ok value` carries a value.
-// - `.err!` means no value is available.
+// - `.some a` carries a value.
+// - `.none!` means no value is available.
 export module Option
 
 import {
+  Bool
+  List
   Result
 }
 
 export {
-  // An optional value, defined as `Result<!, a>`.
-  type Option<a> = Result<!, a>
+  // An optional value, either `.some a` or `.none!`.
+  type Option<a> = either {
+    .some a,
+    .none!,
+  }
+
+  // Transforms the contained value, if present.
+  dec Map : <a>[Option<a>] [type b, box [a] b] Option<b>
+
+  // Transforms the contained value with a computation that may return no value.
+  dec FlatMap : <a>[Option<a>] [type b, box [a] Option<b>] Option<b>
+
+  // Keeps the contained value only if it satisfies the predicate.
+  dec Filter : <a: box>[Option<a>] [box [a] Bool] Option<a>
+
+  // Converts `.some value` to a singleton list and `.none!` to an empty list.
+  dec ToList : <a>[Option<a>] List<a>
+
+  // Converts `.some value` to `.ok value` and `.none!` to the provided error.
+  dec ToResult : <a>[Option<a>] <e: box>[e] Result<e, a>
+}
+
+def Map = <a>[option] [type b, f] option.case {
+  .some a => .some f(a),
+  .none! => .none!,
+}
+
+def FlatMap = <a>[option] [type b, f] option.case {
+  .some a => f(a),
+  .none! => .none!,
+}
+
+def Filter = <a: box>[option] [p] if {
+  option is .some value and p(value) => .some value,
+  else => .none!,
+}
+
+def ToList = <a>[option] option.case {
+  .some a => .item(a) .end!,
+  .none! => .end!,
+}
+
+def ToResult = <a>[option] <e: box>[e] option.case {
+  .some a => .ok a,
+  .none! => .err e,
 }

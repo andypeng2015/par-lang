@@ -3,6 +3,8 @@ module CoreModernization
 import {
   @core/Bool
   @core/BoxMap
+  @core/Float
+  @core/Int
   @core/Json
   @core/List
   @core/Map
@@ -37,8 +39,8 @@ def MapPutList = [!] do {
   let map = Map.New(type Key, type String)
   map.entry(KeyA)[entry]
   entry.case {
-    .ok old => { map.put(old) },
-    .err! => { map.put("one") },
+    .some old => { map.put(old) },
+    .none! => { map.put("one") },
   }
   let entries = map.list
 } in entries
@@ -106,7 +108,7 @@ def TestMapConstructors : [Test] ! = [test] do {
   let (emptySize) emptyEntries = MapSizeThenList(empty)
 
   test
-    .assert("Map.FromList keeps the last duplicate key", entry is .ok value and value == "new")
+    .assert("Map.FromList keeps the last duplicate key", entry is .some value and value == "new")
     .assert("Map.FromList lists entries in data-key order", entries == {*((KeyB) "zero")})
     .assert("Map.New starts empty", emptySize == 0 and emptyEntries == {*()})
     .assert("Map.entry can insert into a new map", MapPutList(!) == {*((KeyA) "one")})
@@ -120,12 +122,22 @@ def TestBoxMapConstructors : [Test] ! = [test] do {
   let deleted = inserted.delete(KeyB)
 
   test
-    .assert("BoxMap.FromList keeps the last duplicate key", map.get(KeyA) is .ok value and value == "new")
-    .assert("BoxMap.FromList exposes plain values from get", map.get(KeyB) is .ok value and value == "zero")
+    .assert("BoxMap.FromList keeps the last duplicate key", map.get(KeyA) is .some value and value == "new")
+    .assert("BoxMap.FromList exposes plain values from get", map.get(KeyB) is .some value and value == "zero")
     .assert("BoxMap.FromList lists entries in data-key order", map.list == {*((KeyB) "zero", (KeyA) "new")})
     .assert("BoxMap.New starts empty", empty.size == 0 and empty.list == {*()})
-    .assert("BoxMap.put returns an updated map", inserted.get(KeyC) is .ok value and value == "two")
-    .assert("BoxMap.delete returns an updated map", deleted.get(KeyB) is .err!)
+    .assert("BoxMap.put returns an updated map", inserted.get(KeyC) is .some value and value == "two")
+    .assert("BoxMap.delete returns an updated map", deleted.get(KeyB) is .none!)
+} in !
+
+def TestNumberParsingOptions : [Test] ! = [test] do {
+  test
+    .assert("Int.FromString returns .some for valid integers", Int.FromString("-42") is .some n and n == -42)
+    .assert("Int.FromString returns .none! for invalid integers", Int.FromString("x") is .none!)
+    .assert("Nat.FromString returns .some for valid naturals", Nat.FromString("42") is .some n and n == 42)
+    .assert("Nat.FromString returns .none! for negative integers", Nat.FromString("-1") is .none!)
+    .assert("Float.FromString returns .some for valid floats", Float.FromString("1.5") is .some n and Float.Equals(n, 1.5, 0.0))
+    .assert("Float.FromString returns .none! for invalid floats", Float.FromString("x") is .none!)
 } in !
 
 def TestJsonEqualsWithoutListEquals : [Test] ! = [test] do {

@@ -81,11 +81,11 @@ async fn provide_map(mut handle: Handle, mut map: BTreeMap<Data, Handle>) {
                 handle.send().concurrently(|mut handle| async move {
                     match removed {
                         Some(value) => {
-                            handle.signal(literal!("ok"));
+                            handle.signal(literal!("some"));
                             handle.link(value);
                         }
                         None => {
-                            handle.signal(literal!("err"));
+                            handle.signal(literal!("none"));
                             handle.break_();
                         }
                     }
