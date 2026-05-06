@@ -12,7 +12,7 @@ the basic building blocks.
 **Types in Par are sequential.** The basic building blocks — pairs, functions, eithers (sums),
 and choices (co-sums) — all read as **first this, then that.**
 
-Let's take pairs. In many programming language, `(A, B)` is the type of a pair of `A` and `B`.
+Let's take pairs. In many programming languages, `(A, B)` is the type of a pair of `A` and `B`.
 This approach is not sequential: both types assume equal position.
 
 In Par, the pair type is instead `(A) B`. The second type being outside of the parentheses is
