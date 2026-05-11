@@ -23,6 +23,7 @@ mod time;
 mod url;
 
 use std::collections::{BTreeMap, btree_map::Entry};
+use std::env;
 use std::path::PathBuf;
 
 use arcstr::literal;
@@ -36,10 +37,13 @@ use par_runtime::registry::PackageRef;
 
 pub fn builtin_packages() -> Vec<WorkspacePackage> {
     let mut packages = Vec::new();
-    packages.push(core_package());
+    // skip if NOSTD is set.
+    if env::var("NOSTD").ok().is_none() {
+        packages.push(core_package());
 
-    #[cfg(not(target_family = "wasm"))]
-    packages.push(basic_package());
+        #[cfg(not(target_family = "wasm"))]
+        packages.push(basic_package());
+    }
 
     packages
 }
