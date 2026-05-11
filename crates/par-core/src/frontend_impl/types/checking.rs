@@ -6,17 +6,15 @@ use super::error::TypeError;
 use super::lattice::union_types;
 use super::{Context, TypeDefs};
 use crate::frontend::TypeError::TypeMustBeKnownAtThisPoint;
-use crate::frontend_impl::types::implicit::{infer_holes, resolve_holes, substitute_holes};
+use crate::frontend_impl::types::implicit::{resolve_holes, substitute_holes};
 use crate::frontend_impl::types::lattice::intersect_types;
 use crate::location::Span;
-use futures::AsyncWriteExt;
 use im::HashMap;
 use indexmap::{IndexMap, IndexSet};
 use par_runtime::primitive::Primitive;
 use par_runtime::readback::Number;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use winnow::combinator::fail;
 
 enum ProcessAnalyzerMode {
     Check,
