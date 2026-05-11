@@ -326,7 +326,7 @@ type defined previously:
 dec SumTree : [Tree] Int
 def SumTree = [tree] tree.begin.case {
   .leaf number        => number,
-  .node(left, right)! => left.loop + right.loop,
+  .node(left, right)! => {left.loop} + {right.loop},
 }
 
 def BiggerSum = SumTree(BiggerTree)  // = 20
