@@ -138,66 +138,43 @@ If you wrote `Concat(*(), numbers)`, the empty list `*()` would lead `a` to be
 inferred as `either {}` (an impossible type), so inference would not pick `Nat`
 for you.
 
-## When implicit generics are a bad fit
+## Higher-order arguments
 
 Implicit generics infer their type variables from the *argument value*. This
-works great when that argument already has a clear type (globals, variables,
-fully typed expressions), but it becomes harder when the argument’s type cannot
-be inferred without annotations.
+works great when that argument already has a clear type, and Par can also use
+the expected argument type to check expressions whose type is only partially
+known.
 
 A classic example is an anonymous function. The `box` here is not the point —
 it just happens that `Map` takes a boxed function.
 
 ```par
-Map(numbers, box [x: Int] `#{x}`) // fine: `x` has a known type
-Map(numbers, box [x] `#{x}`)      // may fail without more info
-```
-
-(`Map` is discussed in [Box](./box.md).)
-
-In the second call, the type of `[x] ...` cannot be inferred unless the type of
-`x` is specified. If the function’s type parameters are being inferred from the
-mapper argument itself, you end up in a chicken-and-egg situation.
-
-The usual fix is to add an annotation:
-
-```par
-Map(numbers, box [x: Int] `#{x}`)
-```
-
-This is why implicit generics can be *made difficult* by higher-order arguments
-like lambdas: if the type of the lambda argument is not already specified, the
-lambda’s type won’t be inferred.
-
-For example, if `Map` tried to infer the result type from the mapper itself:
-
-```par
 dec Map : <a>[List<a>] <b>[box [a] b] List<b>
 ```
 
-then a call like this may fail:
+The list argument infers `a`. When checking the mapper, `b` is still unknown,
+but the checker can still use the partial expected type `box [a] b`. That means
+the lambda parameter gets type `a`, while constraints from the lambda body solve
+`b`:
 
 ```par
 Map(numbers, box [x] `#{x}`)
 ```
 
-because the type of `x` is not specified, so the type of the function cannot be
-inferred, so `b` cannot be inferred either. You end up needing to annotate `x`:
+Here `x` is checked using the element type of `numbers`, and the string
+interpolation result infers `b = String`.
+
+You may still need a local annotation when the argument does not constrain the
+type enough. Empty structures are the usual example:
 
 ```par
-Map(numbers, box [x: Int] `#{x}`)
+Concat(type List<Nat> in *(), numbers)
 ```
 
-Many “map-like” APIs therefore prefer to infer the input type and keep the
-output type explicit, e.g.:
+The annotation is on the value being passed, not on the implicit type parameter.
+There is still no syntax for manually passing an implicit type argument.
 
-```par
-dec Map : <a>[List<a>] [type b, box [a] b] List<b>
-```
-
-With this type, the mapper is checked against the expected type `box [a] b`, so
-`x` can be inferred as `a` and usually needs no annotation. Picking the result
-type `b` is also often more natural than restating the argument type.
+(`Map` is discussed in [Box](./box.md).)
 
 ## Implicit generics and pairs
 

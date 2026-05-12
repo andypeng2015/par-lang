@@ -14,19 +14,19 @@ import {
 }
 
 dec SortByLength : [List<String>] List<String>
-def SortByLength = [strings] strings->List.SortBy(type Nat, box Bytes.Length)
+def SortByLength = [strings] strings->List.SortBy(box Bytes.Length)
 
 def Sorted = SortByLength(*("learning", "Par", "is", "fun"))
 
 dec SquareNumbers : List<Int>
 def SquareNumbers =
   Int.Range(1, 10)
-    ->List.Map(type Int, box [a] a * a)
+    ->List.Map(box [a] a * a)
 
 dec MultiplicationTable : List<String>
 def MultiplicationTable =
-  Int.Range(1, 10)->List.FlatMap(type String, box [a] {
-    Int.Range(1, 10)->List.Map(type String, box [b] {
+  Int.Range(1, 10)->List.FlatMap(box [a] {
+    Int.Range(1, 10)->List.Map(box [b] {
       `#{a} x #{b} = #{a * b}`
     })
   })

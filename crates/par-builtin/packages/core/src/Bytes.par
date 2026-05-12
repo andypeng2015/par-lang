@@ -127,7 +127,7 @@ export {
   // The function returns `Result<e, !>` to propagate errors to the reader.
   //
   // ```par
-  // Bytes.PipeReader(type MyError, [w]
+  // Bytes.PipeReader([w]
   //   catch ! => .ok! in
   //   do {
   //     w.write("hello").try
@@ -135,7 +135,7 @@ export {
   //   } in .ok!
   // )
   // ```
-  dec PipeReader : [type e, [Writer<!>] Result<e, !>] Reader<e>
+  dec PipeReader : <e>[[Writer<!>] Result<e, !>] Reader<e>
 }
 
 def Length = external

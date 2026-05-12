@@ -102,8 +102,8 @@ module Main
 
 import @core/List
 
-dec Map : <a>[List<a>] [type b, box [a] b] List<b>
-def Map = <a>[list] [type b, f] list.begin.case {
+dec Map : <a>[List<a>] <b>[box [a] b] List<b>
+def Map = <a>[list] <b>[f] list.begin.case {
   .end! => .end!,
   .item(x) xs => .item(f(x)) xs.loop,
 }
@@ -112,7 +112,7 @@ def Map = <a>[list] [type b, f] list.begin.case {
 Let’s try it out:
 
 ```par
-def NumberStrings = Map(Int.Range(1, 100), type String, box [n] `#{n}`)
+def NumberStrings = Map(Int.Range(1, 100), box [n] `#{n}`)
 ```
 
 No wrappers, no manual protocols. The boxed function can be used freely, because the `box` type makes

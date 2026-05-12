@@ -177,24 +177,26 @@ def State =
       let (playerX, playerY)! = playerPosition in
       let picture =
         String.Join(
-          Int.Range(-10, 11)->List.Map(type String, box [y]
+          Int.Range(-10, 11)->List.Map(box [y]
             String.Concat(
-              Int.Range(-10, 11)->List.Map(type Char, box [x] chan return {
-                if x == playerX and y == playerY => {
-                  return <> PictureOfPlayer(lastDirection)
+              Int.Range(-10, 11)->List.Map(box [x]
+                type Char in chan return {
+                  if x == playerX and y == playerY => {
+                    return <> PictureOfPlayer(lastDirection)
+                  }
+                  if pegs->CoordListContains((x, y)!) => {
+                    return <> PictureOfPeg
+                  }
+                  return <> Maze((x, y)!).case {
+                    .err! => "▒",
+                    .ok tile => tile.case {
+                      .ground! => " ",
+                      .wall! => "█",
+                      .hole! => "○",
+                    },
+                  }
                 }
-                if pegs->CoordListContains((x, y)!) => {
-                  return <> PictureOfPeg
-                }
-                return <> Maze((x, y)!).case {
-                  .err! => "▒",
-                  .ok tile => tile.case {
-                    .ground! => " ",
-                    .wall! => "█",
-                    .hole! => "○",
-                  },
-                }
-              }),
+              ),
             ),
           ),
           "\n",

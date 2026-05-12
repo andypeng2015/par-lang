@@ -184,7 +184,7 @@ def TestDedup =
   Deduplicate(
     type Int,
     IntListSet,
-    List.Map(Int.Range(1, 1000), type Int, box [n] Int.Mod(n, 7)),
+    List.Map(Int.Range(1, 1000), box [n] Int.Mod(n, 7)),
   )
 ```
 
