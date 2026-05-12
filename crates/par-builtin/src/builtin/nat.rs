@@ -1,7 +1,9 @@
 //package: core
 use arcstr::literal;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 
+use num_integer::Integer;
+use num_traits::Zero;
 use par_core::frontend::{ExternalTypeDef, PrimitiveType, Type};
 use par_core::source::Span;
 use par_runtime::readback::Handle;
@@ -100,11 +102,7 @@ inventory::submit!(ExternalDef {
 async fn nat_mod(mut handle: Handle) {
     let x = handle.receive().nat().await;
     let y = handle.receive().nat().await;
-    handle.provide_nat(if y == BigInt::ZERO {
-        BigInt::ZERO
-    } else {
-        x % y
-    });
+    handle.provide_nat(if y.is_zero() { y } else { x % y });
 }
 
 async fn nat_min(mut handle: Handle) {
@@ -116,21 +114,25 @@ async fn nat_min(mut handle: Handle) {
 async fn nat_max(mut handle: Handle) {
     let x = handle.receive().nat().await;
     let y = handle.receive().int().await;
-    handle.provide_nat(x.max(y));
+    // max of int and nat is always nat, so we can ignore the sign.
+    let (_sign, max) = BigInt::from(x).max(y).into_parts();
+    handle.provide_nat(max);
 }
 
 async fn nat_clamp(mut handle: Handle) {
     let int = handle.receive().int().await;
     let min = handle.receive().nat().await;
     let max = handle.receive().nat().await;
-    handle.provide_nat(int.min(max).max(min));
+    // int clamped to two nats is always nat, so we can ignore the sign.
+    let (_sign, clamped) = int.clamp(min.into(), max.into()).into_parts();
+    handle.provide_nat(clamped);
 }
 
 async fn nat_repeat(mut handle: Handle) {
     let mut n = handle.receive().nat().await;
-    while n > BigInt::ZERO {
+    while n > BigUint::ZERO {
         handle.signal(literal!("step"));
-        n -= 1;
+        n.dec();
     }
     handle.signal(literal!("end"));
     handle.break_();
@@ -138,17 +140,15 @@ async fn nat_repeat(mut handle: Handle) {
 
 async fn nat_repeat_lazy(mut handle: Handle) {
     let n = handle.receive().nat().await;
-    nat_repeat_lazy_inner(handle, n.clone());
+    nat_repeat_lazy_inner(handle, n);
 }
 
-fn nat_repeat_lazy_inner(mut handle: Handle, n: BigInt) {
-    if n > BigInt::ZERO {
+fn nat_repeat_lazy_inner(mut handle: Handle, n: BigUint) {
+    if n > BigUint::ZERO {
         handle.signal(literal!("step"));
         handle.provide_box(move |mut handle| {
-            let mut n = n.clone();
-            n -= 1;
+            let n = &n - 1u32;
             async move {
-                let n = n.clone();
                 match handle.case().await.as_str() {
                     "next" => nat_repeat_lazy_inner(handle, n.clone()),
                     _ => unreachable!(),
@@ -169,7 +169,7 @@ async fn nat_range(mut handle: Handle) {
     while i < hi {
         handle.signal(literal!("item"));
         handle.send().provide_nat(i.clone());
-        i += 1;
+        i += 1u32;
     }
     handle.signal(literal!("end"));
     handle.break_();
@@ -177,15 +177,10 @@ async fn nat_range(mut handle: Handle) {
 
 async fn nat_from_string(mut handle: Handle) {
     let string = handle.receive().string().await;
-    match string.as_str().parse::<BigInt>() {
+    match string.as_str().parse::<BigUint>() {
         Ok(num) => {
-            if num >= BigInt::ZERO {
-                handle.signal(literal!("some"));
-                handle.provide_nat(num);
-            } else {
-                handle.signal(literal!("none"));
-                handle.break_();
-            }
+            handle.signal(literal!("some"));
+            handle.provide_nat(num);
         }
         Err(_) => {
             handle.signal(literal!("none"));

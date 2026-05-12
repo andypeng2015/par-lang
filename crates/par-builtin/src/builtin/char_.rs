@@ -1,5 +1,5 @@
 use arcstr::literal;
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 
 use par_core::frontend::{ExternalTypeDef, PrimitiveType, Type};
 use par_core::source::Span;
@@ -38,7 +38,7 @@ inventory::submit!(ExternalDef {
 
 async fn char_code(mut handle: Handle) {
     let c = handle.receive().char().await;
-    handle.provide_nat(BigInt::from(c as u32));
+    handle.provide_nat(BigUint::from(c as u32));
 }
 
 async fn char_is(mut handle: Handle) {

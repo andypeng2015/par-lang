@@ -1,4 +1,4 @@
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use par_runtime::readback::Handle;
 use par_runtime::registry::{DefinitionRef, ExternalDef, PackageRef};
 
@@ -9,7 +9,7 @@ async fn time_now(mut handle: Handle) {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis();
-    handle.provide_nat(BigInt::from(now));
+    handle.provide_nat(BigUint::from(now));
 }
 
 inventory::submit!(ExternalDef {

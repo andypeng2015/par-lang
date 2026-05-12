@@ -2,7 +2,7 @@
 use arcstr::literal;
 use bytes::Bytes;
 use futures::{StreamExt, channel::mpsc};
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use std::{
     cmp::Ordering,
     sync::{
@@ -375,7 +375,7 @@ async fn provide_pipe_reader_output(
 
 async fn bytes_length(mut handle: Handle) {
     let bytes = handle.receive().bytes().await;
-    handle.provide_nat(BigInt::from(bytes.len()));
+    handle.provide_nat(bytes.len().into());
 }
 
 #[derive(Debug, Clone)]
@@ -383,8 +383,8 @@ pub(super) enum BytesPattern {
     Nil,
     All,
     Empty,
-    Min(BigInt),
-    Max(BigInt),
+    Min(BigUint),
+    Max(BigUint),
     Bytes(Bytes),
     One(ByteClass),
     Non(ByteClass),
@@ -567,8 +567,8 @@ impl MachineInner {
 
             (BytesPattern::Empty, State::Init) => Some(true),
 
-            (BytesPattern::Min(n), State::Index(i)) => Some(&BigInt::from(*i) >= n),
-            (BytesPattern::Max(n), State::Index(i)) => Some(&BigInt::from(*i) <= n),
+            (BytesPattern::Min(n), State::Index(i)) => Some(&BigUint::from(*i) >= n),
+            (BytesPattern::Max(n), State::Index(i)) => Some(&BigUint::from(*i) <= n),
 
             (BytesPattern::Bytes(s), State::Index(i)) => Some(s.len() == *i),
 
@@ -618,7 +618,7 @@ impl MachineInner {
 
             (BytesPattern::Min(_), State::Index(i)) => *i += 1,
             (BytesPattern::Max(n), State::Index(i)) => {
-                if &BigInt::from(*i) < n {
+                if &BigUint::from(*i) < n {
                     *i += 1;
                 } else {
                     self.state = State::Halt;

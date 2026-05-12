@@ -1,6 +1,7 @@
 //package: core
 use arcstr::literal;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
+use num_traits::Zero;
 use par_core::frontend::{ExternalTypeDef, PrimitiveType, Type};
 use par_core::source::Span;
 use par_runtime::readback::Handle;
@@ -89,18 +90,14 @@ inventory::submit!(ExternalDef {
 async fn int_mod(mut handle: Handle) {
     let x = handle.receive().int().await;
     let y = handle.receive().nat().await;
-    if y == BigInt::ZERO {
-        handle.provide_nat(BigInt::ZERO);
-    } else if x < BigInt::ZERO {
-        let rem = x % y.clone();
-        handle.provide_nat(if rem == BigInt::ZERO {
-            BigInt::ZERO
-        } else {
-            y.clone() + rem
-        });
+    let result = if y.is_zero() {
+        BigUint::ZERO
     } else {
-        handle.provide_nat(x % y);
-    }
+        let modulus = num_integer::mod_floor(x, BigInt::from(y));
+        BigUint::try_from(modulus)
+            .expect("y is always positive so the result should always be positive")
+    };
+    handle.provide_nat(result);
 }
 
 async fn int_min(mut handle: Handle) {
@@ -124,11 +121,8 @@ async fn int_clamp(mut handle: Handle) {
 
 async fn int_abs(mut handle: Handle) {
     let int = handle.receive().int().await;
-    if int < BigInt::ZERO {
-        handle.provide_nat(-int);
-    } else {
-        handle.provide_nat(int);
-    }
+    let (_sign, magnitude) = int.into_parts();
+    handle.provide_nat(magnitude);
 }
 
 async fn int_range(mut handle: Handle) {

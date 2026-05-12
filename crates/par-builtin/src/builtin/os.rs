@@ -7,7 +7,7 @@ use std::{
 use arcstr::literal;
 use bytes::Bytes;
 use futures::future::BoxFuture;
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use par_runtime::primitive::ParString;
 use par_runtime::readback::Handle;
 use par_runtime::registry::{DefinitionRef, ExternalDef, PackageRef};
@@ -548,7 +548,7 @@ async fn envmap_new(handle: Handle) {
     handle.provide_box(move |mut handle| async move {
         match handle.case().await.as_str() {
             "size" => {
-                return handle.provide_nat(BigInt::from(std::env::vars_os().count()));
+                return handle.provide_nat(BigUint::from(std::env::vars_os().count()));
             }
             "keys" => {
                 let vars: Vec<_> = std::env::vars_os().into_iter().collect();

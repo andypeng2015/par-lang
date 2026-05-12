@@ -1,7 +1,7 @@
 //package: core
 use std::cmp::Ordering;
 
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 
 use crate::builtin::{
     char_::CharClass,
@@ -117,8 +117,8 @@ pub(super) enum StringPattern {
     Nil,
     All,
     Empty,
-    Min(BigInt),
-    Max(BigInt),
+    Min(BigUint),
+    Max(BigUint),
     Str(ParString),
     One(CharClass),
     Non(CharClass),
@@ -301,8 +301,8 @@ impl MachineInner {
 
             (StringPattern::Empty, State::Init) => Some(true),
 
-            (StringPattern::Min(n), State::Index(i)) => Some(&BigInt::from(*i) >= n),
-            (StringPattern::Max(n), State::Index(i)) => Some(&BigInt::from(*i) <= n),
+            (StringPattern::Min(n), State::Index(i)) => Some(&BigUint::from(*i) >= n),
+            (StringPattern::Max(n), State::Index(i)) => Some(&BigUint::from(*i) <= n),
 
             (StringPattern::Str(s), State::Index(i)) => Some(s.as_str().len() == *i),
 
@@ -352,7 +352,7 @@ impl MachineInner {
 
             (StringPattern::Min(_), State::Index(i)) => *i += 1,
             (StringPattern::Max(n), State::Index(i)) => {
-                if &BigInt::from(*i) < n {
+                if &BigUint::from(*i) < n {
                     *i += 1;
                 } else {
                     self.state = State::Halt;

@@ -25,7 +25,7 @@ use hyper::{
     service::service_fn,
 };
 use hyper_util::rt::TokioIo;
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use tokio::{net::TcpListener, signal, sync::Notify};
 use url::Url as ParsedUrl;
 
@@ -133,7 +133,7 @@ async fn http_fetch(mut handle: Handle) {
     handle.signal(literal!("ok"));
     handle
         .send()
-        .provide_nat(BigInt::from(response.status().as_u16()));
+        .provide_nat(BigUint::from(response.status().as_u16()));
     provide_headers_list(handle.send(), response.headers());
     provide_body_reader(handle, response).await;
 }

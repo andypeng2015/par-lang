@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 
 use crate::builtin::list::readback_list;
 use arcstr::literal;
-use num_bigint::BigInt;
 use par_runtime::readback::{Data, Handle};
 use par_runtime::registry::{DefinitionRef, ExternalDef, PackageRef};
 
@@ -52,7 +51,7 @@ async fn provide_map(mut handle: Handle, mut map: BTreeMap<Data, Handle>) {
     loop {
         match handle.case().await.as_str() {
             "size" => {
-                handle.send().provide_nat(BigInt::from(map.len()));
+                handle.send().provide_nat(map.len().into());
                 continue;
             }
             "keys" => {

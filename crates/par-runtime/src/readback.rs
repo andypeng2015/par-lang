@@ -4,7 +4,7 @@ pub use crate::primitive::Number;
 use crate::primitive::{ParString, Primitive};
 use arcstr::ArcStr;
 use bytes::Bytes;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 
 use std::future::Future;
 
@@ -64,9 +64,9 @@ impl Handle {
             .provide_primitive(Primitive::Number(Number::Int(value)))
     }
 
-    pub fn provide_nat(self, value: BigInt) {
+    pub fn provide_nat(self, value: BigUint) {
         self.handle
-            .provide_primitive(Primitive::Number(Number::Int(value)))
+            .provide_primitive(Primitive::Number(Number::Int(value.into())))
     }
 
     pub fn provide_float(self, value: f64) {
@@ -179,10 +179,11 @@ impl Handle {
         }
     }
 
-    pub async fn nat(self) -> BigInt {
+    pub async fn nat(self) -> BigUint {
+        use num_bigint::Sign::*;
         match self.number().await {
-            Number::Zero => BigInt::ZERO,
-            Number::Int(value) if value >= BigInt::ZERO => value,
+            Number::Zero => BigUint::ZERO,
+            Number::Int(value) if matches!(value.sign(), NoSign | Plus) => value.into_parts().1,
             number => panic!(
                 "Unexpected number in Handle! Expected Int, got {:?}",
                 number
