@@ -6,7 +6,7 @@ use futures::{
     channel::oneshot,
     task::{Spawn, SpawnExt},
 };
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use par_core::{
     frontend::{ParString, Primitive, language::Universal, parse_bytes},
     runtime::{TypedHandle, TypedReadback},
@@ -16,7 +16,7 @@ use par_runtime::primitive::{format_float, parse_float_text};
 use std::sync::{Arc, Mutex};
 
 enum Request {
-    Nat(String, Box<dyn Send + FnOnce(BigInt)>),
+    Nat(String, Box<dyn Send + FnOnce(BigUint)>),
     Int(String, Box<dyn Send + FnOnce(BigInt)>),
     Float(String, Box<dyn Send + FnOnce(f64)>),
     String(String, Box<dyn Send + FnOnce(ParString)>),
@@ -33,8 +33,8 @@ pub enum Event {
     Choice(ArcStr),
     Break,
     Continue,
-    Nat(BigInt),
-    NatRequest(BigInt),
+    Nat(BigUint),
+    NatRequest(BigUint),
     Int(BigInt),
     IntRequest(BigInt),
     Float(f64),
@@ -138,7 +138,7 @@ impl Element {
                     if let Some(request) = self.request.take() {
                         match request {
                             Request::Nat(mut input, callback) => {
-                                let input_number = BigInt::parse_bytes(input.as_bytes(), 10);
+                                let input_number = BigUint::parse_bytes(input.as_bytes(), 10);
                                 let entered = ui
                                     .horizontal(|ui| {
                                         ui.add(
@@ -146,8 +146,7 @@ impl Element {
                                                 .hint_text("Type a natural number..."),
                                         );
                                         let button = ui.add_enabled(
-                                            input_number.is_some()
-                                                && input_number.as_ref().unwrap() >= &BigInt::ZERO,
+                                            input_number.is_some(),
                                             egui::Button::small(egui::Button::new("OK")),
                                         );
                                         button.clicked() && input_number.is_some()

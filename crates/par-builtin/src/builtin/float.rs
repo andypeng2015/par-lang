@@ -3,7 +3,7 @@ use std::f64::consts;
 
 use arcstr::literal;
 use num_bigint::{BigInt, Sign};
-use num_traits::ToPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 use par_core::frontend::{ExternalTypeDef, PrimitiveType, Type};
 use par_core::source::Span;
 use par_runtime::primitive::parse_float_text;
@@ -334,12 +334,7 @@ fn bigint_to_float(value: BigInt) -> f64 {
 }
 
 fn float_to_bigint(value: f64) -> BigInt {
-    if !value.is_finite() {
-        return BigInt::ZERO;
-    }
-
-    let truncated = value.trunc();
-    BigInt::parse_bytes(format!("{truncated:.0}").as_bytes(), 10).unwrap_or(BigInt::ZERO)
+    BigInt::from_f64(value).unwrap_or_default()
 }
 
 async fn float_nan(mut handle: Handle) {

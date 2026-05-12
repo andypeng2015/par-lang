@@ -1,5 +1,4 @@
 use arcstr::literal;
-use num_bigint::BigInt;
 
 use par_core::frontend::ExternalTypeDef;
 use par_core::frontend::{PrimitiveType, Type};
@@ -39,7 +38,7 @@ inventory::submit!(ExternalDef {
 
 async fn byte_code(mut handle: Handle) {
     let c = handle.receive().byte().await;
-    handle.provide_nat(BigInt::from(c))
+    handle.provide_nat(c.into())
 }
 
 async fn byte_is(mut handle: Handle) {

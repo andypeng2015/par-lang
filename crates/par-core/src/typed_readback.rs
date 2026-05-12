@@ -3,12 +3,12 @@ use crate::frontend_impl::language::{LocalName, Universal};
 use crate::location::Span;
 use arcstr::ArcStr;
 use bytes::Bytes;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use par_runtime::primitive::ParString;
 use par_runtime::readback::Handle;
 
 pub enum TypedReadback {
-    Nat(BigInt),
+    Nat(BigUint),
     Int(BigInt),
     Float(f64),
     String(ParString),
@@ -16,7 +16,7 @@ pub enum TypedReadback {
     Byte(u8),
     Bytes(Bytes),
 
-    NatRequest(Box<dyn Send + FnOnce(BigInt)>),
+    NatRequest(Box<dyn Send + FnOnce(BigUint)>),
     IntRequest(Box<dyn Send + FnOnce(BigInt)>),
     FloatRequest(Box<dyn Send + FnOnce(f64)>),
     StringRequest(Box<dyn Send + FnOnce(ParString)>),

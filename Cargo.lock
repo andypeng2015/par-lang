@@ -3046,6 +3046,7 @@ dependencies = [
  "indexmap",
  "inventory",
  "num-bigint",
+ "num-integer",
  "num-traits",
  "par-core",
  "par-runtime",

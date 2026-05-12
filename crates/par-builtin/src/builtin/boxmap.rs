@@ -6,7 +6,6 @@ use tokio::sync::Mutex;
 use crate::builtin::list::readback_list;
 use arcstr::literal;
 use im::OrdMap;
-use num_bigint::BigInt;
 use par_runtime::readback::{Data, Handle};
 use par_runtime::registry::{DefinitionRef, ExternalDef, PackageRef};
 
@@ -64,7 +63,7 @@ fn provide_boxmap(handle: Handle, map: OrdMap<Data, Arc<Mutex<Handle>>>) {
         async move {
             match handle.case().await.as_str() {
                 "size" => {
-                    return handle.provide_nat(BigInt::from(map.len()));
+                    return handle.provide_nat(map.len().into());
                 }
                 "keys" => {
                     for key in map.keys() {
