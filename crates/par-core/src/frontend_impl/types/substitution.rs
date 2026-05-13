@@ -82,4 +82,45 @@ impl<S: Clone> Type<S> {
         inner(&mut result, self, var).unwrap();
         result
     }
+
+    pub fn substitute_inferred_holes(self, map: &BTreeMap<LocalName, Type<S>>) -> Self {
+        fn inner<S: Clone>(typ: &mut Type<S>, map: &BTreeMap<LocalName, Type<S>>) {
+            match typ {
+                Type::Hole(_span, name, _) => {
+                    if let Some(replacement) = map.get(name) {
+                        *typ = replacement.clone();
+                    }
+                }
+                Type::DualHole(_span, name, _) => {
+                    if let Some(replacement) = map.get(name) {
+                        *typ = replacement.clone().dual(Span::None);
+                    }
+                }
+                Type::Recursive {
+                    body, display_hint, ..
+                }
+                | Type::Iterative {
+                    body, display_hint, ..
+                } => {
+                    inner(body, map);
+                    if let Some(display_hint) = display_hint.0.as_mut() {
+                        for arg in &mut display_hint.args {
+                            inner(arg, map);
+                        }
+                    }
+                }
+                _ => {
+                    visit::continue_mut(typ, |child| {
+                        inner(child, map);
+                        Ok::<_, ()>(())
+                    })
+                    .unwrap();
+                }
+            }
+        }
+
+        let mut typ = self;
+        inner(&mut typ, map);
+        typ
+    }
 }

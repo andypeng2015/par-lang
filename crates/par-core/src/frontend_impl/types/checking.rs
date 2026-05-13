@@ -1085,6 +1085,8 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                     .map(|var| (var.name.clone(), Type::Fail(span.clone())))
                     .collect()
             });
+        let argument =
+            argument.map_types(&mut |typ| typ.substitute_inferred_holes(&inferred_holes));
         let then_type = then_type
             .clone()
             .substitute(inferred_holes.iter().map(|(k, v)| (k, v)).collect())
