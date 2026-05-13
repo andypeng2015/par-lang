@@ -22,16 +22,16 @@ fn solve_constraints<S: Clone + Eq + std::hash::Hash>(
     for typ in upper_bounds {
         upper = intersect_types(type_defs, span, &upper, &typ)?;
     }
-    if !lower.is_assignable_to(&upper, type_defs)? {
+    if !lower.require_assignable_to(&upper, type_defs)? {
         return Err(CannotAssignFromTo(span.clone(), lower, upper));
     }
 
     if matches!(constraint, TypeConstraint::Signed)
-        && lower.is_assignable_to(&Type::nat(), type_defs)?
-        && Type::nat().is_assignable_to(&lower, type_defs)?
+        && lower.is_definitely_assignable_to(&Type::nat(), type_defs)?
+        && Type::nat().is_definitely_assignable_to(&lower, type_defs)?
     {
         let promoted = Type::int();
-        if promoted.is_assignable_to(&upper, type_defs)? {
+        if promoted.is_definitely_assignable_to(&upper, type_defs)? {
             return Ok(promoted);
         }
     }
@@ -76,7 +76,7 @@ pub(crate) fn infer_holes<S: Clone + Eq + std::hash::Hash>(
 ) -> Result<BTreeMap<LocalName, Type<S>>, TypeError<S>> {
     let (holed_pattern, holes_map) = substitute_holes(pattern, names)?;
 
-    if !typ.is_assignable_to(&holed_pattern, type_defs)? {
+    if !typ.require_assignable_to(&holed_pattern, type_defs)? {
         return Err(TypeError::CannotAssignFromTo(
             span.clone(),
             typ.clone(),

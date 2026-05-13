@@ -13,13 +13,15 @@ use std::ops::BitAnd;
 struct SubtypeContext<'a, S> {
     type_defs: &'a TypeDefs<S>,
     visited: IndexSet<(Type<S>, Type<S>)>,
+    constrain_holes: bool,
 }
 
 impl<'a, S: Clone + Eq + std::hash::Hash> SubtypeContext<'a, S> {
-    fn new<'b>(type_defs: &'b TypeDefs<S>) -> SubtypeContext<'b, S> {
+    fn new<'b>(type_defs: &'b TypeDefs<S>, constrain_holes: bool) -> SubtypeContext<'b, S> {
         SubtypeContext {
             type_defs,
             visited: Default::default(),
+            constrain_holes,
         }
     }
     fn normalize(&mut self, typ: Type<S>) -> Result<Type<S>, TypeError<S>> {
@@ -131,7 +133,7 @@ impl<S: Clone + Eq + std::hash::Hash> Type<S> {
         u: &Type<S>,
         type_defs: &TypeDefs<S>,
     ) -> Result<(), TypeError<S>> {
-        if !self.is_assignable_to(u, type_defs)? {
+        if !self.require_assignable_to(u, type_defs)? {
             return Err(TypeError::CannotAssignFromTo(
                 span.clone(),
                 self.clone(),
@@ -141,13 +143,33 @@ impl<S: Clone + Eq + std::hash::Hash> Type<S> {
         Ok(())
     }
 
-    pub fn is_assignable_to(
+    pub fn require_assignable_to(
         &self,
         other: &Self,
         type_defs: &TypeDefs<S>,
     ) -> Result<bool, TypeError<S>> {
-        match Type::is_subtype_helper(self.clone(), other.clone(), SubtypeContext::new(type_defs))?
-        {
+        self.is_assignable_to(other, type_defs, true)
+    }
+
+    pub fn is_definitely_assignable_to(
+        &self,
+        other: &Self,
+        type_defs: &TypeDefs<S>,
+    ) -> Result<bool, TypeError<S>> {
+        self.is_assignable_to(other, type_defs, false)
+    }
+
+    fn is_assignable_to(
+        &self,
+        other: &Self,
+        type_defs: &TypeDefs<S>,
+        constrain_holes: bool,
+    ) -> Result<bool, TypeError<S>> {
+        match Type::is_subtype_helper(
+            self.clone(),
+            other.clone(),
+            SubtypeContext::new(type_defs, constrain_holes),
+        )? {
             Compatible => Ok(true),
             Incompatible => Ok(false),
             Cycle {
@@ -199,7 +221,7 @@ impl<S: Clone + Eq + std::hash::Hash> Type<S> {
             return Ok(Compatible);
         }
 
-        if let Some(result) = Type::is_subtype_hole(&type1, &type2) {
+        if let Some(result) = Type::is_subtype_hole(&type1, &type2, ctx.constrain_holes) {
             return Ok(result);
         }
 
@@ -234,7 +256,11 @@ impl<S: Clone + Eq + std::hash::Hash> Type<S> {
         Ok(Type::is_subtype_structural(type1, type2, ctx)?.ttl_dec())
     }
 
-    fn is_subtype_hole(type1: &Type<S>, type2: &Type<S>) -> Option<SubtypeResult<S>> {
+    fn is_subtype_hole(
+        type1: &Type<S>,
+        type2: &Type<S>,
+        constrain_holes: bool,
+    ) -> Option<SubtypeResult<S>> {
         match (type1, type2) {
             (Self::Hole(_, name1, _), Self::Hole(_, name2, _)) if name1 == name2 => {
                 Some(Compatible)
@@ -242,22 +268,26 @@ impl<S: Clone + Eq + std::hash::Hash> Type<S> {
             (Self::DualHole(_, name1, _), Self::DualHole(_, name2, _)) if name1 == name2 => {
                 Some(Compatible)
             }
-            (Self::Hole(_, _, hole), t2) => {
+            (Self::Hole(_, _, hole), t2) if constrain_holes => {
                 hole.add_upper_bound(t2.clone());
                 Some(Compatible)
             }
-            (t1, Self::Hole(_, _, hole)) => {
+            (t1, Self::Hole(_, _, hole)) if constrain_holes => {
                 hole.add_lower_bound(t1.clone());
                 Some(Compatible)
             }
-            (Self::DualHole(_, _, hole), t2) => {
+            (Self::DualHole(_, _, hole), t2) if constrain_holes => {
                 hole.add_lower_bound(t2.clone().dual(Span::None));
                 Some(Compatible)
             }
-            (t1, Self::DualHole(_, _, hole)) => {
+            (t1, Self::DualHole(_, _, hole)) if constrain_holes => {
                 hole.add_upper_bound(t1.clone().dual(Span::None));
                 Some(Compatible)
             }
+            (Self::Hole(..), _)
+            | (_, Self::Hole(..))
+            | (Self::DualHole(..), _)
+            | (_, Self::DualHole(..)) => Some(Incompatible),
             _ => None,
         }
     }

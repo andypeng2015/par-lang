@@ -163,7 +163,7 @@ mod tests {
 
         assert!(
             empty_either
-                .is_assignable_to(&any_type, &type_defs)
+                .is_definitely_assignable_to(&any_type, &type_defs)
                 .unwrap()
         );
     }
@@ -176,7 +176,7 @@ mod tests {
 
         assert!(
             any_type
-                .is_assignable_to(&empty_choice, &type_defs)
+                .is_definitely_assignable_to(&empty_choice, &type_defs)
                 .unwrap()
         );
     }
