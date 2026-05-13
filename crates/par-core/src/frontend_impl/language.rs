@@ -1017,14 +1017,14 @@ impl Context {
             Self::pair_expression(op_span, left, right),
         );
         let condition = Condition::Is {
-            span: op_span.clone(),
+            span: Span::None,
             value: compare,
-            variant: Self::operator_local_name(op_span, variant),
-            pattern: Pattern::Continue(op_span.clone()),
+            variant: Self::operator_local_name(&Span::None, variant),
+            pattern: Pattern::Continue(Span::None),
         };
 
         if negate {
-            Self::wrap_condition_expression(Condition::Not(op_span.clone(), Box::new(condition)))
+            Self::wrap_condition_expression(Condition::Not(Span::None, Box::new(condition)))
         } else {
             Self::wrap_condition_expression(condition)
         }
@@ -2176,10 +2176,9 @@ impl Context {
     ) -> Result<Arc<process::Process<(), Unresolved>>, CompileError> {
         Ok(match construct {
             Construct::Then(expression) => {
-                let span = expression.span().clone();
                 let expression = self.compile_expression(expression)?;
                 Arc::new(process::Process::Do {
-                    span: span,
+                    span: Span::None,
                     name: LocalName::result(),
                     usage: VariableUsage::Unknown,
                     typ: (),
@@ -2314,10 +2313,10 @@ impl Context {
         branch: &ConstructBranch<Unresolved>,
     ) -> Result<Arc<process::Process<(), Unresolved>>, CompileError> {
         Ok(match branch {
-            ConstructBranch::Then(span, expression) => {
+            ConstructBranch::Then(_, expression) => {
                 let expression = self.compile_expression(expression)?;
                 Arc::new(process::Process::Do {
-                    span: span.clone(),
+                    span: Span::None,
                     name: LocalName::result(),
                     usage: VariableUsage::Unknown,
                     typ: (),
@@ -3222,17 +3221,17 @@ impl Context {
         failure: Arc<process::Process<(), Unresolved>>,
     ) -> Result<Arc<process::Process<(), Unresolved>>, CompileError> {
         Ok(match condition {
-            Condition::Bool(span, expr) => {
+            Condition::Bool(_, expr) => {
                 let temp = LocalName::temp();
                 let expr = self.compile_expression(expr)?;
                 Arc::new(process::Process::Let {
-                    span: span.clone(),
+                    span: Span::None,
                     name: temp.clone(),
                     annotation: None,
                     typ: (),
                     value: expr,
                     then: Arc::new(process::Process::Do {
-                        span: span.clone(),
+                        span: Span::None,
                         name: temp.clone(),
                         usage: VariableUsage::Unknown,
                         typ: (),
