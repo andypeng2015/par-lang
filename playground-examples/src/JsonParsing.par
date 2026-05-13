@@ -19,7 +19,7 @@ type Action = either {
   .shout String,
 }
 
-def ActionFormat = Json.Tagged(type Action, "action", *(
+def ActionFormat = Json.Tagged("action", *(
   (.string "increment", Json.Field("delta", Json.Number))
     box [num] .increment num,
   (.string "reset", Json.Empty)
@@ -37,9 +37,9 @@ def SomeValidAndInvalidActions : List<String> = *(
 
 def ParsedActions : List<Result<!, Action>> =
   SomeValidAndInvalidActions
-    ->List.Map(type Result<Json.Error, Json>, box Json.Decode)
-    ->List.Map(type Result<!, Action>, box [result] {
+    ->List.Map(box Json.Decode)
+    ->List.Map(box [result] {
       result
-        ->Result.MapErr(type !, box [_] !)
-        ->Result.FlatMap(type Action, box ActionFormat.parse)
+        ->Result.MapErr(box [_] !)
+        ->Result.FlatMap(box ActionFormat.parse)
     })

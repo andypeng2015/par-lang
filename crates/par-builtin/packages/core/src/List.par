@@ -2,7 +2,7 @@
 //
 // ```par
 // let xs = *(1, 2, 3)
-// xs->List.Map(type Int, box [n] n * 2)
+// xs->List.Map(box [n] n * 2)
 // ```
 export module List
 
@@ -44,13 +44,13 @@ export {
   // Applies `f` to each element of a list.
   //
   // ```par
-  // {*(1, 2, 3)}->List.Map(type Int, box [n] n * 2)
+  // {*(1, 2, 3)}->List.Map(box [n] n * 2)
   // // = *(2, 4, 6)
   // ```
-  dec Map : <a>[List<a>] [type b, box [a] b] List<b>
+  dec Map : <a>[List<a>] <b>[box [a] b] List<b>
 
   // Applies `f` to each element and concatenates the resulting lists.
-  dec FlatMap : <a>[List<a>] [type b, box [a] List<b>] List<b>
+  dec FlatMap : <a>[List<a>] <b>[box [a] List<b>] List<b>
 
   // Keeps the elements for which the predicate returns `.true!`.
   dec Filter : <a: box>[List<a>] [box [a] Bool] List<a>
@@ -112,16 +112,16 @@ export {
   dec SortDesc : <a: data>[List<a>] List<a>
 
   // Sorts a non-linear list by an extracted data key.
-  dec SortBy : <a: box>[List<a>] [type k: data, box [a] k] List<a>
+  dec SortBy : <a: box>[List<a>] <k: data>[box [a] k] List<a>
 
   // Sorts a non-linear list by an extracted data key in descending order.
-  dec SortDescBy : <a: box>[List<a>] [type k: data, box [a] k] List<a>
+  dec SortDescBy : <a: box>[List<a>] <k: data>[box [a] k] List<a>
 
   // Sorts a linear list by a function that returns both the key and the item.
-  dec SortLinearBy : <a>[List<a>] [type k: data, box [a] (k) a] List<a>
+  dec SortLinearBy : <a>[List<a>] <k: data>[box [a] (k) a] List<a>
 
   // Sorts a linear list by a key in descending order.
-  dec SortLinearDescBy : <a>[List<a>] [type k: data, box [a] (k) a] List<a>
+  dec SortLinearDescBy : <a>[List<a>] <k: data>[box [a] (k) a] List<a>
 
   // Calculates the sum of all elements in a list.
   dec Sum : <a: number>[List<a>] a
@@ -134,12 +134,12 @@ def Builder = [type a]
     .build => append(.end!),
   }
 
-def Map = <a>[list] [type b, f] list.begin.case {
+def Map = <a>[list] <b>[f] list.begin.case {
   .end! => .end!
   .item(v) list => .item(f(v)) list.loop,
 }
 
-def FlatMap = <a>[list] [type b, f] list.begin.case {
+def FlatMap = <a>[list] <b>[f] list.begin.case {
   .end! => .end!,
   .item(v) list => f(v).begin@flat.case {
     .end! => list.loop,

@@ -1,3 +1,4 @@
+use crate::frontend::TypeError::CannotAssignFromTo;
 use crate::frontend_impl::language::{LocalName, TypeConstraint, TypeParameter};
 use crate::frontend_impl::types::core::Hole;
 use crate::frontend_impl::types::lattice::{intersect_types, union_types};
@@ -11,7 +12,7 @@ fn solve_constraints<S: Clone + Eq + std::hash::Hash>(
     constraint: TypeConstraint,
     type_defs: &TypeDefs<S>,
     span: &Span,
-) -> Result<Option<Type<S>>, TypeError<S>> {
+) -> Result<Type<S>, TypeError<S>> {
     let (lower_bounds, upper_bounds) = hole.get_constraints();
     let mut lower = Type::Either(Span::None, BTreeMap::new());
     let mut upper = Type::Choice(Span::None, BTreeMap::new());
@@ -21,42 +22,39 @@ fn solve_constraints<S: Clone + Eq + std::hash::Hash>(
     for typ in upper_bounds {
         upper = intersect_types(type_defs, span, &upper, &typ)?;
     }
-    if !lower.is_assignable_to(&upper, type_defs)? {
-        return Ok(None);
+    if !lower.require_assignable_to(&upper, type_defs)? {
+        return Err(CannotAssignFromTo(span.clone(), lower, upper));
     }
 
     if matches!(constraint, TypeConstraint::Signed)
-        && lower.is_assignable_to(&Type::nat(), type_defs)?
-        && Type::nat().is_assignable_to(&lower, type_defs)?
+        && lower.is_definitely_assignable_to(&Type::nat(), type_defs)?
+        && Type::nat().is_definitely_assignable_to(&lower, type_defs)?
     {
         let promoted = Type::int();
-        if promoted.is_assignable_to(&upper, type_defs)? {
-            return Ok(Some(promoted));
+        if promoted.is_definitely_assignable_to(&upper, type_defs)? {
+            return Ok(promoted);
         }
     }
 
     if let Type::Choice(_, branches) = &upper {
         if branches.is_empty() {
-            return Ok(Some(lower));
+            return Ok(lower);
         }
     }
 
     if let Type::Either(_, branches) = &lower {
         if branches.is_empty() {
-            return Ok(Some(upper));
+            return Ok(upper);
         }
     }
 
-    Ok(Some(lower))
+    Ok(lower)
 }
 
-pub(crate) fn infer_holes<S: Clone + Eq + std::hash::Hash>(
-    span: &Span,
-    typ: &Type<S>,
+pub(crate) fn substitute_holes<S: Clone + Eq + std::hash::Hash>(
     pattern: &Type<S>,
     names: &[TypeParameter],
-    type_defs: &TypeDefs<S>,
-) -> Result<BTreeMap<LocalName, Type<S>>, TypeError<S>> {
+) -> Result<(Type<S>, HashMap<LocalName, Hole<S>>), TypeError<S>> {
     let mut holed_pattern = pattern.clone();
     let mut holes_map: HashMap<LocalName, Hole<S>> = HashMap::new();
     for name in names.iter() {
@@ -66,8 +64,19 @@ pub(crate) fn infer_holes<S: Clone + Eq + std::hash::Hash>(
             .clone()
             .substitute(BTreeMap::from([(&name.name, &hole_typ)]))?;
     }
+    Ok((holed_pattern, holes_map))
+}
 
-    if !typ.is_assignable_to(&holed_pattern, type_defs)? {
+pub(crate) fn infer_holes<S: Clone + Eq + std::hash::Hash>(
+    span: &Span,
+    typ: &Type<S>,
+    pattern: &Type<S>,
+    names: &[TypeParameter],
+    type_defs: &TypeDefs<S>,
+) -> Result<BTreeMap<LocalName, Type<S>>, TypeError<S>> {
+    let (holed_pattern, holes_map) = substitute_holes(pattern, names)?;
+
+    if !typ.require_assignable_to(&holed_pattern, type_defs)? {
         return Err(TypeError::CannotAssignFromTo(
             span.clone(),
             typ.clone(),
@@ -75,30 +84,29 @@ pub(crate) fn infer_holes<S: Clone + Eq + std::hash::Hash>(
         ));
     }
 
-    let mut res = BTreeMap::new();
+    let res = resolve_holes(span, names, type_defs, holes_map)?;
+    Ok(res)
+}
 
+pub(crate) fn resolve_holes<S: Clone + Eq + std::hash::Hash>(
+    span: &Span,
+    names: &[TypeParameter],
+    type_defs: &TypeDefs<S>,
+    holes_map: HashMap<LocalName, Hole<S>>,
+) -> Result<BTreeMap<LocalName, Type<S>>, TypeError<S>> {
+    let mut res = BTreeMap::new();
     for name in names {
         let hole = holes_map.get(&name.name).unwrap();
-        match solve_constraints(hole, name.constraint, type_defs, span)? {
-            Some(solved_type) => {
-                if !solved_type.satisfies_constraint(name.constraint, type_defs)? {
-                    return Err(TypeError::TypeDoesNotSatisfyConstraint(
-                        span.clone(),
-                        name.name.clone(),
-                        solved_type,
-                        name.constraint,
-                    ));
-                }
-                res.insert(name.name.clone(), solved_type);
-            }
-            _ => {
-                return Err(TypeError::CannotAssignFromTo(
-                    span.clone(),
-                    typ.clone(),
-                    pattern.clone(),
-                ));
-            }
+        let solved_type = solve_constraints(hole, name.constraint, type_defs, span)?;
+        if !solved_type.satisfies_constraint(name.constraint, type_defs)? {
+            return Err(TypeError::TypeDoesNotSatisfyConstraint(
+                span.clone(),
+                name.name.clone(),
+                solved_type,
+                name.constraint,
+            ));
         }
+        res.insert(name.name.clone(), solved_type);
     }
     Ok(res)
 }

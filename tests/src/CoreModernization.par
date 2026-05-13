@@ -72,12 +72,12 @@ def TestListConstraintsAndEquality : [Test] ! = [test] do {
 def TestListSorting : [Test] ! = [test] do {
   let numbers = *(3, 1, 2, 1)
   let tagged = *((2) "first-two", (1) "one", (2) "second-two", (0) "zero")
-  let sortedTagged = tagged->List.SortBy(type Nat, box [(key) _] key)
-  let linearSortedTagged = tagged->List.SortLinearBy(type Nat, box [item]
+  let sortedTagged = tagged->List.SortBy(box [(key) _] key)
+  let linearSortedTagged = tagged->List.SortLinearBy(box [item]
     let (key) _ = item in
     (key) item
   )
-  let linearDescTagged = tagged->List.SortLinearDescBy(type Nat, box [item]
+  let linearDescTagged = tagged->List.SortLinearDescBy(box [item]
     let (key) _ = item in
     (key) item
   )

@@ -1053,6 +1053,206 @@ impl<Typ: Clone, S> Expression<Typ, S> {
     }
 }
 
+impl<S: Clone> Process<Type<S>, S> {
+    pub fn map_types(&self, f: &mut impl FnMut(Type<S>) -> Type<S>) -> Arc<Self> {
+        match self {
+            Process::Let {
+                span,
+                name,
+                annotation,
+                typ,
+                value,
+                then,
+            } => Arc::new(Process::Let {
+                span: span.clone(),
+                name: name.clone(),
+                annotation: annotation.clone().map(&mut *f),
+                typ: f(typ.clone()),
+                value: value.map_types(f),
+                then: then.map_types(f),
+            }),
+            Process::Do {
+                span,
+                name,
+                usage,
+                typ,
+                command,
+            } => Arc::new(Process::Do {
+                span: span.clone(),
+                name: name.clone(),
+                usage: usage.clone(),
+                typ: f(typ.clone()),
+                command: command.map_types(f),
+            }),
+            Process::Poll {
+                span,
+                kind,
+                driver,
+                point,
+                clients,
+                name,
+                name_typ,
+                captures,
+                then,
+                else_,
+            } => Arc::new(Process::Poll {
+                span: span.clone(),
+                kind: kind.clone(),
+                driver: driver.clone(),
+                point: point.clone(),
+                clients: map_expression_types_vec(clients, f),
+                name: name.clone(),
+                name_typ: f(name_typ.clone()),
+                captures: captures.clone(),
+                then: then.map_types(f),
+                else_: else_.map_types(f),
+            }),
+            Process::Submit {
+                span,
+                driver,
+                point,
+                values,
+                captures,
+            } => Arc::new(Process::Submit {
+                span: span.clone(),
+                driver: driver.clone(),
+                point: point.clone(),
+                values: map_expression_types_vec(values, f),
+                captures: captures.clone(),
+            }),
+            Process::Block(span, index, body, then) => Arc::new(Process::Block(
+                span.clone(),
+                *index,
+                body.map_types(f),
+                then.map_types(f),
+            )),
+            Process::Goto(span, index, captures) => {
+                Arc::new(Process::Goto(span.clone(), *index, captures.clone()))
+            }
+            Process::Unreachable(span) => Arc::new(Process::Unreachable(span.clone())),
+        }
+    }
+}
+
+impl<S: Clone> Command<Type<S>, S> {
+    pub fn map_types(&self, f: &mut impl FnMut(Type<S>) -> Type<S>) -> Self {
+        match self {
+            Command::Noop(process) => Command::Noop(process.map_types(f)),
+            Command::Link(expression) => Command::Link(expression.map_types(f)),
+            Command::Send(argument, process) => {
+                Command::Send(argument.map_types(f), process.map_types(f))
+            }
+            Command::Receive(parameter, annotation, typ, process, vars) => Command::Receive(
+                parameter.clone(),
+                annotation.clone().map(&mut *f),
+                f(typ.clone()),
+                process.map_types(f),
+                vars.clone(),
+            ),
+            Command::Signal(chosen, process) => {
+                Command::Signal(chosen.clone(), process.map_types(f))
+            }
+            Command::Case(branches, processes, else_process) => Command::Case(
+                Arc::clone(branches),
+                map_process_types_boxed_slice(processes, f),
+                else_process.as_ref().map(|process| process.map_types(f)),
+            ),
+            Command::Break => Command::Break,
+            Command::Continue(process) => Command::Continue(process.map_types(f)),
+            Command::Begin {
+                unfounded,
+                label,
+                captures,
+                body,
+            } => Command::Begin {
+                unfounded: *unfounded,
+                label: label.clone(),
+                captures: captures.clone(),
+                body: body.map_types(f),
+            },
+            Command::Loop(label, driver, captures) => {
+                Command::Loop(label.clone(), driver.clone(), captures.clone())
+            }
+            Command::SendType(argument, process) => {
+                Command::SendType(f(argument.clone()), process.map_types(f))
+            }
+            Command::ReceiveType(parameter, process) => {
+                Command::ReceiveType(parameter.clone(), process.map_types(f))
+            }
+        }
+    }
+}
+
+impl<S: Clone> Expression<Type<S>, S> {
+    pub fn map_types(&self, f: &mut impl FnMut(Type<S>) -> Type<S>) -> Arc<Self> {
+        match self {
+            Expression::Global(span, name, typ) => Arc::new(Expression::Global(
+                span.clone(),
+                name.clone(),
+                f(typ.clone()),
+            )),
+            Expression::Variable(span, name, typ, usage) => Arc::new(Expression::Variable(
+                span.clone(),
+                name.clone(),
+                f(typ.clone()),
+                usage.clone(),
+            )),
+            Expression::Box(span, captures, expression, typ) => Arc::new(Expression::Box(
+                span.clone(),
+                captures.clone(),
+                expression.map_types(f),
+                f(typ.clone()),
+            )),
+            Expression::Chan {
+                span,
+                captures,
+                chan_name,
+                chan_annotation,
+                chan_type,
+                expr_type,
+                process,
+            } => Arc::new(Expression::Chan {
+                span: span.clone(),
+                captures: captures.clone(),
+                chan_name: chan_name.clone(),
+                chan_annotation: chan_annotation.clone().map(&mut *f),
+                chan_type: f(chan_type.clone()),
+                expr_type: f(expr_type.clone()),
+                process: process.map_types(f),
+            }),
+            Expression::Primitive(span, primitive, typ) => Arc::new(Expression::Primitive(
+                span.clone(),
+                primitive.clone(),
+                f(typ.clone()),
+            )),
+            Expression::External(external, typ) => {
+                Arc::new(Expression::External(external.clone(), f(typ.clone())))
+            }
+        }
+    }
+}
+
+fn map_process_types_boxed_slice<S: Clone>(
+    processes: &[Arc<Process<Type<S>, S>>],
+    f: &mut impl FnMut(Type<S>) -> Type<S>,
+) -> Box<[Arc<Process<Type<S>, S>>]> {
+    processes
+        .iter()
+        .map(|process| process.map_types(f))
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
+fn map_expression_types_vec<S: Clone>(
+    expressions: &[Arc<Expression<Type<S>, S>>],
+    f: &mut impl FnMut(Type<S>) -> Type<S>,
+) -> Vec<Arc<Expression<Type<S>, S>>> {
+    expressions
+        .iter()
+        .map(|expression| expression.map_types(f))
+        .collect()
+}
+
 impl<S: Clone> Process<(), S> {
     pub fn map_global_names<T, E>(
         self,

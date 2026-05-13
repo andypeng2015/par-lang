@@ -5,9 +5,11 @@ use super::core::{LoopId, Operation, Type, get_primitive_type};
 use super::error::TypeError;
 use super::lattice::union_types;
 use super::{Context, TypeDefs};
-use crate::frontend_impl::types::implicit::infer_holes;
+use crate::frontend::TypeError::TypeMustBeKnownAtThisPoint;
+use crate::frontend_impl::types::implicit::{resolve_holes, substitute_holes};
 use crate::frontend_impl::types::lattice::intersect_types;
 use crate::location::Span;
+use im::HashMap;
 use indexmap::{IndexMap, IndexSet};
 use par_runtime::primitive::Primitive;
 use par_runtime::readback::Number;
@@ -319,7 +321,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                     continue;
                 };
                 if !typ
-                    .is_assignable_to(&poll_pool_type, &self.type_defs)
+                    .require_assignable_to(&poll_pool_type, &self.type_defs)
                     .unwrap_or(true)
                 {
                     emit(TypeError::SubmittedClientNotAssignableToPoll(
@@ -563,7 +565,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
             };
 
         if !current_point_client_type
-            .is_assignable_to(&poll_point_client_type, &self.type_defs)
+            .require_assignable_to(&poll_point_client_type, &self.type_defs)
             .unwrap_or(true)
         {
             emit(TypeError::SubmitCannotTargetPollPoint(
@@ -588,7 +590,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 typ = next;
             }
             if !typ
-                .is_assignable_to(&poll_pool_type, &self.type_defs)
+                .require_assignable_to(&poll_pool_type, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::SubmittedClientNotAssignableToPoll(
@@ -598,7 +600,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 ));
             }
             if !typ
-                .is_assignable_to(&poll_point_client_type, &self.type_defs)
+                .require_assignable_to(&poll_point_client_type, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::SubmittedClientDoesNotDescend(span.clone()));
@@ -615,7 +617,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 continue;
             };
             if !current_type
-                .is_assignable_to(type_at_poll, &self.type_defs)
+                .require_assignable_to(type_at_poll, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::PollVariableChangedType(
@@ -653,7 +655,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
         let impossible = Type::either(vec![]);
         let mut exhaustive = false;
         for typ in self.variables.values() {
-            match typ.is_assignable_to(&impossible, &self.type_defs) {
+            match typ.is_definitely_assignable_to(&impossible, &self.type_defs) {
                 Ok(true) => {
                     exhaustive = true;
                     break;
@@ -868,6 +870,41 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
         mode: &ProcessAnalyzerMode,
         emit: &mut impl FnMut(TypeError<S>),
     ) -> (Command<Type<S>, S>, Option<Type<S>>) {
+        match typ {
+            Type::Hole(_span, _name, hole) => {
+                if let Some(inference_subject) = inference_subject {
+                    emit(TypeMustBeKnownAtThisPoint(
+                        span.clone(),
+                        inference_subject.clone(),
+                    ));
+                    let fail = Type::Fail(span.clone());
+                    self.put(span, object.clone(), fail.clone()).ok();
+                    let (cmd, typ) = self.infer_command(span, object, command, emit);
+                    hole.add_upper_bound(typ);
+                    return (cmd, Some(fail));
+                }
+                let (cmd, typ) = self.infer_command(span, object, command, emit);
+                hole.add_upper_bound(typ);
+                return (cmd, None);
+            }
+            Type::DualHole(_span, _name, hole) => {
+                if let Some(inference_subject) = inference_subject {
+                    emit(TypeMustBeKnownAtThisPoint(
+                        span.clone(),
+                        inference_subject.clone(),
+                    ));
+                    let fail = Type::Fail(span.clone());
+                    self.put(span, object.clone(), fail.clone()).ok();
+                    let (cmd, typ) = self.infer_command(span, object, command, emit);
+                    hole.add_lower_bound(typ.dual(Span::None));
+                    return (cmd, None);
+                }
+                let (cmd, typ) = self.infer_command(span, object, command, emit);
+                hole.add_lower_bound(typ.dual(Span::None));
+                return (cmd, None);
+            }
+            _ => {}
+        };
         match command {
             Command::Noop(process) => {
                 self.put(span, object.clone(), typ.clone()).ok();
@@ -1035,24 +1072,25 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
         mode: &ProcessAnalyzerMode,
         emit: &mut impl FnMut(TypeError<S>),
     ) -> (Command<Type<S>, S>, Option<Type<S>>) {
-        let (argument, inferred_arg_type) = self.infer_expression(None, argument, emit);
-        let inferred_holes = infer_holes(
-            span,
-            &inferred_arg_type,
-            argument_type,
-            vars,
-            &self.type_defs,
-        )
-        .unwrap_or_else(|e| {
-            emit(e);
-            vars.iter()
-                .map(|var| (var.name.clone(), Type::Fail(span.clone())))
-                .collect()
-        });
+        let (argument_type, holes_map) =
+            substitute_holes(argument_type, vars).unwrap_or_else(|e| {
+                emit(e);
+                (Type::Fail(span.clone()), HashMap::new())
+            });
+        let argument = self.check_expression(None, argument, &argument_type, emit);
+        let inferred_holes =
+            resolve_holes(span, vars, &self.type_defs, holes_map).unwrap_or_else(|e| {
+                emit(e);
+                vars.iter()
+                    .map(|var| (var.name.clone(), Type::Fail(span.clone())))
+                    .collect()
+            });
+        let argument =
+            argument.map_types(&mut |typ| typ.substitute_inferred_holes(&inferred_holes));
         let then_type = then_type
             .clone()
             .substitute(inferred_holes.iter().map(|(k, v)| (k, v)).collect())
-            .unwrap_or_else(|e| {
+            .unwrap_or_else(|e: TypeError<S>| {
                 emit(e);
                 Type::Fail(span.clone())
             });
@@ -1727,7 +1765,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 continue;
             };
             if !current_type
-                .is_assignable_to(type_at_begin, &self.type_defs)
+                .require_assignable_to(type_at_begin, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::LoopVariableChangedType(
@@ -2157,7 +2195,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                     continue;
                 };
                 if !typ
-                    .is_assignable_to(&poll_pool_type, &self.type_defs)
+                    .require_assignable_to(&poll_pool_type, &self.type_defs)
                     .unwrap_or(true)
                 {
                     emit(TypeError::SubmittedClientNotAssignableToPoll(
@@ -2418,7 +2456,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
             };
 
         if !current_point_client_type
-            .is_assignable_to(&poll_point_client_type, &self.type_defs)
+            .require_assignable_to(&poll_point_client_type, &self.type_defs)
             .unwrap_or(true)
         {
             emit(TypeError::SubmitCannotTargetPollPoint(
@@ -2443,7 +2481,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 typ = next;
             }
             if !typ
-                .is_assignable_to(&poll_pool_type, &self.type_defs)
+                .require_assignable_to(&poll_pool_type, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::SubmittedClientNotAssignableToPoll(
@@ -2453,7 +2491,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 ));
             }
             if !typ
-                .is_assignable_to(&poll_point_client_type, &self.type_defs)
+                .require_assignable_to(&poll_point_client_type, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::SubmittedClientDoesNotDescend(span.clone()));
@@ -2470,7 +2508,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 continue;
             };
             if !current_type
-                .is_assignable_to(type_at_poll, &self.type_defs)
+                .require_assignable_to(type_at_poll, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::PollVariableChangedType(
@@ -2511,7 +2549,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
         let impossible = Type::either(vec![]);
         let mut exhaustive = false;
         for typ in self.variables.values() {
-            match typ.is_assignable_to(&impossible, &self.type_defs) {
+            match typ.is_definitely_assignable_to(&impossible, &self.type_defs) {
                 Ok(true) => {
                     exhaustive = true;
                     break;
@@ -2863,7 +2901,7 @@ impl<S: Clone + Eq + std::hash::Hash> Context<S> {
                 continue;
             };
             if !current_type
-                .is_assignable_to(type_at_begin, &self.type_defs)
+                .require_assignable_to(type_at_begin, &self.type_defs)
                 .unwrap_or(true)
             {
                 emit(TypeError::LoopVariableChangedType(
@@ -3497,7 +3535,7 @@ fn merge_path_contexts<S: Clone + Eq + std::hash::Hash>(
             .any(|t| t.is_linear(typedefs).unwrap_or(true));
 
         let is_absurd = present_types.iter().any(|t| {
-            t.is_assignable_to(&Type::either(vec![]), typedefs)
+            t.is_definitely_assignable_to(&Type::either(vec![]), typedefs)
                 .unwrap_or(false)
         });
 

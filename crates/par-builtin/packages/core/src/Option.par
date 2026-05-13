@@ -18,10 +18,10 @@ export {
   }
 
   // Transforms the contained value, if present.
-  dec Map : <a>[Option<a>] [type b, box [a] b] Option<b>
+  dec Map : <a>[Option<a>] <b>[box [a] b] Option<b>
 
   // Transforms the contained value with a computation that may return no value.
-  dec FlatMap : <a>[Option<a>] [type b, box [a] Option<b>] Option<b>
+  dec FlatMap : <a>[Option<a>] <b>[box [a] Option<b>] Option<b>
 
   // Keeps the contained value only if it satisfies the predicate.
   dec Filter : <a: box>[Option<a>] [box [a] Bool] Option<a>
@@ -33,12 +33,12 @@ export {
   dec ToResult : <a>[Option<a>] <e: box>[e] Result<e, a>
 }
 
-def Map = <a>[option] [type b, f] option.case {
+def Map = <a>[option] <b>[f] option.case {
   .some a => .some f(a),
   .none! => .none!,
 }
 
-def FlatMap = <a>[option] [type b, f] option.case {
+def FlatMap = <a>[option] <b>[f] option.case {
   .some a => f(a),
   .none! => .none!,
 }
