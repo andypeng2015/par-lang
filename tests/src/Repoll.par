@@ -1,0 +1,36 @@
+module Repoll
+
+import {
+  @core/Bool
+  @core/List
+  @core/Test
+}
+
+def DrainAfterDo: [List<!>] ! = [list] poll(list) {
+  l => l.case {
+    .end! => submit(),
+    // The empty `do {}` used to make this `repoll` fail to type-check.
+    .item(_) xs => do {} in repoll(xs) {
+      l => l.case { .end! => submit(), .item(_) xs => submit(xs) }
+      else => !,
+    },
+  }
+  else => !,
+}
+
+def DrainIf: [List<!>] ! = [list] poll(list) {
+  l => if {
+    l is .item(_) xs => repoll(xs) {
+      l => l.case { .end! => submit(), .item(_) xs => submit(xs) }
+      else => !,
+    },
+    else => submit(),
+  }
+  else => !,
+}
+
+def TestRepollAfterBlock: [Test] ! = [test] do {
+  let ! = DrainAfterDo(*(!, !, !))
+  let ! = DrainIf(*(!, !, !))
+  test.assert("repoll works after a do block and inside an if branch", .true!)
+} in test.done

@@ -2,7 +2,7 @@ use super::{
     language::LocalName,
     process::{Command, Expression, Process, Step, TerminalCommand, Terminator},
 };
-use crate::location::Span;
+use crate::{frontend::process::PollKind, location::Span};
 use indexmap::IndexMap;
 use std::{collections::VecDeque, sync::Arc};
 
@@ -254,6 +254,9 @@ impl CaptureAnalysis {
                     let (client, caps1) = self.fix_expression(client, env, &later_caps);
                     fixed_clients.push(client);
                     caps.extend(caps1);
+                }
+                if matches!(kind, PollKind::Repoll) {
+                    caps.add(driver.clone(), span.clone(), VariableUsage::Unknown);
                 }
 
                 let poll_caps = self.poll_caps.get(point).cloned().unwrap_or_default();
@@ -829,6 +832,8 @@ impl<'a> CaptureCollector<'a> {
                 caps
             }
             Terminator::Poll {
+                span,
+                kind,
                 driver,
                 point,
                 clients,
@@ -848,6 +853,9 @@ impl<'a> CaptureCollector<'a> {
                 for client in clients {
                     let client_caps = self.expression_captures(client, env);
                     poll_caps.merge_missing(&client_caps);
+                }
+                if matches!(kind, PollKind::Repoll) {
+                    poll_caps.add(driver.clone(), span.clone(), VariableUsage::Unknown);
                 }
 
                 poll_caps

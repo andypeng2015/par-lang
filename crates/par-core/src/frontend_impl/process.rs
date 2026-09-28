@@ -1511,6 +1511,7 @@ impl<Typ, S> Process<Typ, S> {
             }
             Terminator::Poll {
                 driver,
+                kind,
                 clients,
                 name,
                 then,
@@ -1528,6 +1529,9 @@ impl<Typ, S> Process<Typ, S> {
                 let mut else_vars = else_.free_variables();
                 else_vars.shift_remove(driver);
                 vars.extend(else_vars);
+                if matches!(kind, PollKind::Repoll) {
+                    vars.insert(driver.clone());
+                }
                 vars
             }
             Terminator::Submit {
